@@ -211,6 +211,7 @@ body::after {
 
 /* Trial header: top ~20% of the panel */
 #trial-header {
+  position: relative;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -237,6 +238,21 @@ body::after {
   margin: 8px 0 0;
   max-width: 70ch;
 }
+
+#score-display {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: rgba(11, 19, 36, 0.60);
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+#score-display.hidden { display: none; }
 
 /*
  * Bottom area: scale + button.
@@ -337,14 +353,14 @@ body::after {
   outline-offset: 2px;
 }
 
-/* ── 2×2 element grid (Accept | Reject per machine) ───── */
+/* ── 3×2 element grid (Accept | Reject per machine) ───── */
 #element-grid {
   --element-thumb-size: 66px;
   --element-label-size: 1.10rem;
   --element-cell-row-gap: 8px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
   gap: 8px;
   width: 100%;
   height: 100%;
@@ -381,6 +397,7 @@ body::after {
   color: rgba(11, 19, 36, 0.95);
   border-bottom: 2px solid rgba(15, 23, 42, 0.12);
   padding-bottom: 8px;
+  margin-bottom: 10px;
 }
 .element-box[data-col="0"] .element-cell-title {
   border-bottom-color: rgba(255, 102, 0, 0.30);
@@ -389,16 +406,22 @@ body::after {
   border-bottom-color: rgba(0, 204, 255, 0.30);
 }
 
+/*
+ * Multi-column flow: once a column of elements fills the cell's height,
+ * additional elements spill into a new column instead of scrolling.
+ * --element-col-width / --element-thumb-size / --element-label-size are
+ * set per-cell by ElementGrid.setCellItems, shrinking as the item count grows.
+ */
 .element-cell-stack {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: var(--element-cell-row-gap, 6px);
-  overflow-y: auto;
   width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  column-width: var(--element-col-width, 100%);
+  column-gap: 10px;
+  column-fill: auto;
 }
 
 .element-slot-row {
@@ -406,9 +429,10 @@ body::after {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  flex: 0 0 auto;
+  gap: var(--element-row-inner-gap, 14px);
+  break-inside: avoid;
   width: 100%;
+  margin: 0 0 var(--element-cell-row-gap, 6px) 0;
 }
 
 .element-slot-row img {
@@ -482,9 +506,9 @@ body::after {
   width: 100%;
   overflow: auto; /* scrolling happens here */
   /* Caption under each machine row: spacing, type size, inline element size & vertical nudge */
-  --machine-caption-margin-top: 4rem;
+  --machine-caption-margin-top: 10rem;
   --machine-caption-font-size: 1.75rem;
-  --machine-caption-inline-img-size: 36px;
+  --machine-caption-inline-img-size: 32px;
   /* Positive = shift inline element PNGs down relative to text (tune to taste) */
   --machine-caption-inline-img-offset-y: 0.5px;
 }
@@ -548,10 +572,13 @@ body::after {
 
 /* Highlighted inline element chip (label + image) in captions */
 .caption-elem-chip {
+  --caption-chip-img-size: 28px;   /* image size within the chip  */
+  --caption-chip-pad-y:    6px;    /* top & bottom padding         */
+
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 1px 8px 1px 6px;
+  padding: var(--caption-chip-pad-y) 8px var(--caption-chip-pad-y) 6px;
   margin: 0 2px;
   border-radius: 6px;
   background: rgba(15, 23, 42, 0.06);
@@ -559,6 +586,11 @@ body::after {
   vertical-align: middle;
   cursor: default;
   transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+
+.caption-elem-chip .machine-caption-inline-img {
+  height: var(--caption-chip-img-size);
+  width:  var(--caption-chip-img-size);
 }
 .caption-elem-chip:hover {
   background: rgba(255, 102, 0, 0.12);
@@ -574,9 +606,9 @@ body::after {
   border-radius: 6px;
 }
 .caption-elem-chip.elem-highlight-chip {
-  background: rgba(255, 102, 0, 0.14);
-  border-color: rgba(255, 102, 0, 0.45);
-  box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.14);
+  background: rgba(50, 60, 80, 0.18);
+  border-color: rgba(50, 60, 80, 0.65);
+  box-shadow: 0 0 0 3px rgba(50, 60, 80, 0.14);
 }
 .caption-elem-label {
   font-size: 0.82em;
@@ -622,7 +654,8 @@ body::after {
   --slot-3-left: 1022px;
   --state-nudge: 0px;
   --machine-scale: 0.55;
-  --elem-slot-1-x: 264px;
+  --elem-scale: 0.55;
+  --elem-slot-1-x: 264;
   --elem-slot-2-x: 704px;
   --elem-slot-3-x: 1144px;
   --elem-slot-1-y: 1px;
@@ -669,7 +702,7 @@ body::after {
   height: auto;
   max-width: none;
   max-height: none;
-  transform: translate(-50%, -50%) scale(var(--machine-scale));
+  transform: translate(-50%, -50%) scale(var(--elem-scale));
   transform-origin: center center;
   pointer-events: auto;
   cursor: pointer;
@@ -694,7 +727,7 @@ body::after {
   --machine-strip-width: 920px;
   --slot-1-left: 70px;
   --slot-3-left: 582px;
-  --elem-slot-1-x: 265px;
+  --elem-slot-1-x: 264px;
   --elem-slot-3-x: 704px;
 }
 
@@ -713,7 +746,8 @@ body::after {
 
 /* ── Greyed-out question phase ─────────────────────────── */
 .machine-row.question-phase .machine-layer {
-  filter: grayscale(1) brightness(1.15) opacity(0.55);
+  filter: grayscale(1) brightness(1.04) opacity(0.42);
+  transition: filter 0.2s, opacity 0.2s;
 }
 .machine-row.question-phase .machine-element-layer {
   filter: none;
@@ -907,8 +941,9 @@ body::after {
 
 /* ── Introduction visuals ──────────────────────────── */
 .intro-elem-gallery {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(2, auto);
   gap: 10px;
   justify-content: center;
   margin: 16px 0;

@@ -5,15 +5,26 @@
  * Right: machine rows + optional element overlays (one per machine slot: 1 | 2 | 3).
  */
 
-/** @type {readonly string[]} */
+/** @type {readonly string[]} Major element classes; each has minor variants 1-4 (e.g. "A1" … "A4"). */
 const ELEMENT_IDS = [
-  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
+  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
+  "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T",
 ];
 
-/** PNG path for elem_A … elem_L */
+/** PNG path for an element id, e.g. "A3" -> img/elem_A3.png, "OutT" -> img/elem_OutT.png */
 function elementSrc(id) {
   const key = String(id).toUpperCase();
   return `img/elem_${key}.png`;
+}
+
+/* Shared display-label registry — mutated by Experiment.setElementDisplayLabels */
+const _displayLabelMap = {};
+
+function _getDisplayLabel(elemId) {
+  if (!elemId) return elemId;
+  const upper = String(elemId).trim().toUpperCase();
+  if (upper === "OUTT" || upper === "OUTF" || upper === "ENERGY") return "Energy";
+  return _displayLabelMap[upper] ?? upper;
 }
 
 /* ════════════════════════════════════════════════════════
@@ -32,6 +43,27 @@ const ElementGrid = (() => {
   function getStack(row, col) {
     const box = grid[`${row},${col}`];
     return box?.querySelector(".element-cell-stack") ?? null;
+  }
+
+  /**
+   * Sizing tiers so a crowded cell shrinks its thumbnails/labels and spills
+   * into additional columns rather than overflowing or requiring scroll.
+   */
+  const DENSITY_TIERS = [
+    { max: 4,  thumb: 66, label: 1.10, rowGap: 8, innerGap: 14, col: "100%" },
+    { max: 6,  thumb: 52, label: 0.95, rowGap: 6, innerGap: 10, col: "130px" },
+    { max: 10, thumb: 40, label: 0.82, rowGap: 5, innerGap: 8,  col: "100px" },
+    { max: 16, thumb: 30, label: 0.72, rowGap: 4, innerGap: 6,  col: "80px" },
+    { max: Infinity, thumb: 22, label: 0.62, rowGap: 3, innerGap: 5, col: "62px" },
+  ];
+
+  function applyDensity(box, count) {
+    const tier = DENSITY_TIERS.find((t) => count <= t.max);
+    box.style.setProperty("--element-thumb-size", `${tier.thumb}px`);
+    box.style.setProperty("--element-label-size", `${tier.label}rem`);
+    box.style.setProperty("--element-cell-row-gap", `${tier.rowGap}px`);
+    box.style.setProperty("--element-row-inner-gap", `${tier.innerGap}px`);
+    box.style.setProperty("--element-col-width", tier.col);
   }
 
   function setCellTitle(row, col, text) {
@@ -69,6 +101,7 @@ const ElementGrid = (() => {
       rowEl.appendChild(lab);
       stack.appendChild(rowEl);
     });
+    applyDensity(box, slice.length);
     box.classList.toggle("has-content", slice.length > 0);
   }
 
@@ -84,6 +117,7 @@ const ElementGrid = (() => {
     if (stack) stack.innerHTML = "";
     setCellTitle(row, col, text);
     box.classList.remove("has-content");
+    applyDensity(box, 0);
   }
 
   function clearCell(row, col) {
@@ -91,6 +125,7 @@ const ElementGrid = (() => {
     const stack = getStack(row, col);
     if (stack) stack.innerHTML = "";
     box?.classList.remove("has-content");
+    if (box) applyDensity(box, 0);
   }
 
   function clearAll() {
@@ -98,6 +133,7 @@ const ElementGrid = (() => {
       const stack = box.querySelector(".element-cell-stack");
       if (stack) stack.innerHTML = "";
       box.classList.remove("has-content");
+      applyDensity(box, 0);
     });
   }
 
@@ -241,7 +277,7 @@ const MachineCanvas = (() => {
             img.draggable = false;
             const label = document.createElement("span");
             label.className = "caption-elem-label";
-            label.textContent = eid === "TRUE" ? "energy" : eid;
+            label.textContent = _getDisplayLabel(eid);
             chip.appendChild(label);
             chip.appendChild(img);
             cap.appendChild(chip);
@@ -404,29 +440,124 @@ const MachineCanvas = (() => {
 /* ════════════════════════════════════════════════════════
    Data helper — post trial data to the server
    ════════════════════════════════════════════════════════ */
-async function saveTrial(payload) {
+/* ════════════════════════════════════════════════════════
+   Session state
+   ════════════════════════════════════════════════════════ */
+let _pid = null;
+let _sessionStart = null;
+
+function getProlificParams() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    PROLIFIC_PID: params.get("PROLIFIC_PID"),
+    STUDY_ID:     params.get("STUDY_ID"),
+    SESSION_ID:   params.get("SESSION_ID"),
+  };
+}
+
+async function initSession() {
+  _sessionStart = Date.now();
   try {
-    const res = await fetch("/api/data", {
+    const res = await fetch("/api/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ prolific: getProlificParams() }),
     });
-    return res.json();
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    _pid = data.pid;
+    return { blockOrder: data.blockOrder ?? [0, 1, 2, 3] };
   } catch (err) {
-    console.error("Failed to save trial:", err);
+    console.warn("Session init failed (offline?), using default order:", err);
+    _pid = "local-" + Math.random().toString(36).slice(2, 10);
+    return { blockOrder: [0, 1, 2, 3] };
+  }
+}
+
+async function saveElementMapping(blockNum, blockCondition, roleToElementId, displayLabels) {
+  if (!_pid) return;
+  const mappings = Object.entries(roleToElementId).map(([role, elemId]) => ({
+    role,
+    elementId: elemId,
+    displayLabel: displayLabels[String(elemId).toUpperCase()] ?? elemId,
+    majorClass: String(elemId).replace(/\d+$/, ""),
+    minorVariant: parseInt(String(elemId).match(/\d+$/)?.[0] ?? "1", 10),
+  }));
+  try {
+    await fetch("/api/element-mapping", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pid: _pid, blockNum, blockCondition, mappings }),
+    });
+  } catch (err) {
+    console.error("Failed to save element mapping:", err);
+  }
+}
+
+async function completeSession(terminated = false) {
+  if (!_pid) return;
+  try {
+    await fetch("/api/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pid: _pid,
+        totalTimeMs: _sessionStart ? Date.now() - _sessionStart : null,
+        terminated,
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to complete session:", err);
   }
 }
 
 /* ════════════════════════════════════════════════════════
-   Prolific integration helper
+   Per-trial save
    ════════════════════════════════════════════════════════ */
-function getProlificParams() {
-  const params = new URLSearchParams(window.location.search);
-  return {
-    participantId: params.get("PROLIFIC_PID"),
-    studyId: params.get("STUDY_ID"),
-    sessionId: params.get("SESSION_ID"),
-  };
+const SCALE_CODE = [2, 1, -1, -2];  // scale value 1="Definitely Active"=+2
+
+async function saveTrial(entry) {
+  if (!_pid) return;
+
+  let responseCoded = null;
+  let correct = null;
+
+  if (entry.trialType === "prediction") {
+    const raw = entry.response;
+    if (typeof raw === "number" && raw >= 1 && raw <= 4) responseCoded = SCALE_CODE[raw - 1];
+    correct = entry.predictionCorrect ?? null;
+  } else if (entry.trialType === "attention_check") {
+    correct = entry.attentionPassed ?? null;
+    responseCoded = correct === null ? null : (correct ? 1 : 0);
+  }
+
+  const meta = entry._meta ?? {};
+  try {
+    await fetch("/api/trial", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pid:            _pid,
+        blockNum:       meta.blockNum       ?? null,
+        blockCondition: meta.blockCondition ?? null,
+        trialNum:       meta.trialNum       ?? null,
+        trialType:      entry.trialType,
+        machineSlot:    entry.machine       ?? null,
+        elementRole:    meta.role           ?? null,
+        elementId:      meta.elemId         ?? null,
+        displayLabel:   meta.displayLabel   ?? null,
+        correctAnswer:  meta.correctAnswer  ?? null,
+        responseRaw:    entry.response != null ? String(entry.response) : null,
+        responseCoded,
+        correct,
+        critical:       meta.critical       ?? false,
+        rtMs:           Math.round(entry.continueRT ?? entry.nextRT ?? 0),
+        firstResponseMs: entry.firstScaleTime != null ? Math.round(entry.firstScaleTime) : null,
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to save trial:", err);
+  }
 }
 
 /* ════════════════════════════════════════════════════════
@@ -458,8 +589,8 @@ const Experiment = (() => {
 
   /** @type {'three'|'two'} */
   let mode = "three";
-  // The knowledge table tracks exactly 2 process machines per block.
-  let processMachines = ["m1", "m2"];
+  // The knowledge table tracks exactly 3 process machines per block.
+  let processMachines = ["m1", "m2", "m3"];
   let machineNames = [...processMachines];
   let machineRowMap = {};
   const cellHistory = {};
@@ -471,24 +602,28 @@ const Experiment = (() => {
   }
   rebuildRowMap();
 
-  const COL_LABELS = ["Accept", "Reject"];
-
-  const MACHINE_GLYPHS = {
-    m1: "M1",
-    m2: "M2",
-    m3: "M3",
-    m4: "M4",
-    m5: "M5",
-    m6: "M6",
-  };
+  const COL_LABELS = ["Active", "Idle"];
 
   function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
+  /** Machines are numbered 1-12, e.g. "m4" -> "Machine 4". */
   function machineDisplayName(name) {
     const key = String(name).trim().toLowerCase();
-    return MACHINE_GLYPHS[key] ?? capitalize(key);
+    const m = /^m(\d+)$/.exec(key);
+    return m ? `Machine ${m[1]}` : capitalize(key);
+  }
+
+  function setElementDisplayLabels(map) {
+    Object.keys(_displayLabelMap).forEach((k) => delete _displayLabelMap[k]);
+    Object.entries(map).forEach(([id, label]) => {
+      _displayLabelMap[String(id).trim().toUpperCase()] = label;
+    });
+  }
+
+  function getDisplayLabel(elemId) {
+    return _getDisplayLabel(elemId);
   }
 
   function isNull(e) {
@@ -499,13 +634,13 @@ const Experiment = (() => {
   function isTableElement(elemId) {
     if (isNull(elemId)) return false;
     const u = String(elemId).trim().toLowerCase();
-    return u !== "true" && u !== "false" && u !== "energy";
+    return u !== "outt" && u !== "outf" && u !== "energy";
   }
 
-  /** PNG path for a machine in a given state, e.g. "img/m4_a.png". */
+  /** PNG path for a machine in a given state, e.g. "img/M4_a.png". */
   function machineSrc(name, state) {
-    // Machines are stored as capitalized PNGs (M1_a.png ... M6_r.png)
-    if (/^m[1-6]$/i.test(String(name))) {
+    // Machines are stored as capitalized PNGs (M1_a.png ... M12_r.png)
+    if (/^m\d+$/i.test(String(name))) {
       const n = String(name).trim().toUpperCase(); // m4 -> M4
       return `img/${n}_${state}.png`;
     }
@@ -548,15 +683,15 @@ const Experiment = (() => {
   }
 
   /**
-   * Switch the block — sets which 2 process machines are tracked by the left table.
+   * Switch the block — sets which process machines are tracked by the left table.
    * Clears both the canvas and the table.
-   * @param {[string, string]} pair — e.g. ["m1", "m2"]
+   * @param {string[]} machines — e.g. ["m1", "m2", "m3"]
    */
-  function setBlock(pair) {
-    processMachines = [...pair];
+  function setBlock(machines) {
+    processMachines = [...machines];
     machineNames = [...processMachines];
     rebuildRowMap();
-    setMode("two", [pair[0], "res"], { clearGrid: true });
+    setMode("two", [machines[0], "res"], { clearGrid: true });
   }
 
   /** Rich caption: text + inline element images for each non-empty elem. */
@@ -565,7 +700,7 @@ const Experiment = (() => {
     for (let i = start; i < end; i++) {
       if (i > start) parts.push({ type: "text", text: "; " });
       const st = states[i];
-      const verb = st === "a" ? "accepts" : st === "r" ? "rejects" : "idle";
+      const verb = st === "a" ? "activates with" : st === "r" ? "stays idle with" : "idle with";
       parts.push({ type: "text", text: `${machineDisplayName(machines[i])} ${verb} ` });
       if (elems[i] == null || elems[i] === "") {
         parts.push({ type: "text", text: "(no element)" });
@@ -585,7 +720,7 @@ const Experiment = (() => {
     if (cellHistory[key].some((it) => String(it.id).trim().toUpperCase() === normElemId)) {
       return;
     }
-    cellHistory[key].push({ id: normElemId, label: label ?? normElemId });
+    cellHistory[key].push({ id: normElemId, label: label ?? getDisplayLabel(normElemId) });
     ElementGrid.setCellItems(row, col, cellHistory[key]);
   }
 
@@ -754,6 +889,8 @@ const Experiment = (() => {
     captionTextPart,
     captionElementPart,
     machineDisplayName,
+    setElementDisplayLabels,
+    getDisplayLabel,
     get mode() {
       return mode;
     },
@@ -823,6 +960,7 @@ const TrialRunner = (() => {
   let currentResponse = null;
   const responses = [];
   let attentionFailCount = 0;
+  let attentionFailLimit = 1;
 
   let trialOnsetTime = 0;
   let firstScaleTime = null;
@@ -832,6 +970,10 @@ const TrialRunner = (() => {
   let onTrialStart = null;
   /** @type {(() => void) | null} */
   let onAllDone = null;
+  /** @type {((entry: object) => void) | null} */
+  let onTrialComplete = null;
+  /** @type {(() => void) | null} */
+  let onTerminated = null;
 
   function now() { return performance.now(); }
 
@@ -848,7 +990,7 @@ const TrialRunner = (() => {
   }
 
   function resetBinary() {
-    binaryBtns.forEach((b) => b.classList.remove("selected"));
+    binaryBtns.forEach((b) => { b.classList.remove("selected"); b.disabled = false; });
     currentResponse = null;
     firstScaleTime = null;
   }
@@ -897,18 +1039,19 @@ const TrialRunner = (() => {
     const q = trial.question;
 
     const rowIdx = 0;
-    // Only two states exist now (accept/reject). For question phase we show the
-    // machine in its accept art, greyed out via CSS, until the outcome is revealed.
-    MachineCanvas.setLayer("q_machine_0", Experiment.machineSrc(q.machine, "a"), {
+    // Show both machines in their inactive (blue) state — the default before any outcome.
+    MachineCanvas.setLayer("q_machine_0", Experiment.machineSrc(q.machine, "r"), {
       rowIndex: rowIdx,
       slot: 1,
       zIndex: 1,
     });
-    MachineCanvas.setLayer("q_res_0", Experiment.machineSrc("res", "a"), {
+    MachineCanvas.setLayer("q_res_0", Experiment.machineSrc("res", "r"), {
       rowIndex: rowIdx,
       slot: 3,
       zIndex: 3,
     });
+    const rowEl = MachineCanvas.getRowElement(rowIdx);
+    if (rowEl) rowEl.classList.add("question-phase");
 
     if (q.elem) {
       MachineCanvas.setMachineElement(rowIdx, 1, elementSrc(q.elem), {
@@ -918,15 +1061,18 @@ const TrialRunner = (() => {
       });
     }
 
-    const rowEl = MachineCanvas.getRowElement(rowIdx);
-    if (rowEl) rowEl.classList.add("question-phase");
-
     const caption =
       q.caption ?? "Will this machine accept this element?";
     MachineCanvas.setRowCaption(rowIdx, caption);
 
     if (trial._trialType === "attention_check") {
       showBinary();
+      if (trial._lockedAnswer) {
+        const forcedSide = trial._lockedAnswer;
+        binaryBtns.forEach((b) => {
+          if (b.dataset.value !== forcedSide) b.disabled = true;
+        });
+      }
     } else {
       showScale();
     }
@@ -952,20 +1098,35 @@ const TrialRunner = (() => {
         states: s.states,
         elems: s.elems,
       })),
+      _meta: trial._meta ?? null,
     };
 
     if (trialType === "attention_check") {
       const correctState = (trial.specs ?? [])[0]?.states?.[0] ?? "a";
-      const correct = correctState === "a" ? "accept" : "reject";
-      const passed = currentResponse === correct;
+      const passed = currentResponse === (correctState === "a" ? "accept" : "reject");
       responseEntry.attentionPassed = passed;
 
       if (!passed) {
+        responses.push(responseEntry);
+        onTrialComplete?.(responseEntry);
+
+        if (trial._isTutorial) {
+          window.alert(
+            "Incorrect memory check — this is what a failure looks like.\n\n" +
+            "In the real experiment you can fail at most two memory checks before the experiment ends.\n\n" +
+            "(The tutorial does not count towards this limit.)"
+          );
+          if (currentIndex >= queue.length - 1) { onAllDone?.(); return; }
+          currentIndex++;
+          renderCurrentTrial();
+          return;
+        }
+
         attentionFailCount++;
         responseEntry.attentionFailCount = attentionFailCount;
-        responses.push(responseEntry);
 
-        if (attentionFailCount > 1) {
+        if (attentionFailCount > attentionFailLimit) {
+          onTerminated?.();
           Introduction.showEndScreen(
             `<h2>Experiment Ended</h2>
              <p>Unfortunately, the experiment cannot continue because too many
@@ -987,6 +1148,7 @@ const TrialRunner = (() => {
 
       // Passed: log and move on immediately (no answer reveal for attention checks).
       responses.push(responseEntry);
+      onTrialComplete?.(responseEntry);
       if (currentIndex >= queue.length - 1) {
         if (typeof onAllDone === "function") onAllDone();
         return;
@@ -1018,6 +1180,8 @@ const TrialRunner = (() => {
       const actual = trial.specs[0].states[0];
       const predicted = currentResponse <= 2 ? "a" : "r"; // 4-point forced-choice: 1-2 accept, 3-4 reject
       const ok = predicted === actual;
+      responseEntry.predictionCorrect = ok;
+      PredictionScore.record(ok);
       const base = trial.specs?.[0]?.caption;
       if (Array.isArray(base)) {
         MachineCanvas.setRowCaption(firstRowUsed, [
@@ -1030,6 +1194,7 @@ const TrialRunner = (() => {
         ]);
       }
     }
+    onTrialComplete?.(responseEntry);
 
     const isLast = currentIndex >= queue.length - 1;
     nextBtn.textContent = isLast ? "Finish" : "Next Trial";
@@ -1080,16 +1245,20 @@ const TrialRunner = (() => {
 
     if (trial && trial.type !== "question" && trialOnsetTime > 0) {
       const rt = now() - trialOnsetTime;
-      responses.push({
+      const obsEntry = {
         trialIndex: currentIndex,
         trialType: trial._trialType ?? "observation",
+        machine: trial.specs?.[0]?.machines?.[0] ?? null,
         specs: (trial.specs ?? []).map((s) => ({
           machines: s.machines,
           states: s.states,
           elems: s.elems,
         })),
         nextRT: rt,
-      });
+        _meta: trial._meta ?? null,
+      };
+      responses.push(obsEntry);
+      onTrialComplete?.(obsEntry);
     }
 
     if (currentIndex >= queue.length - 1) {
@@ -1140,7 +1309,52 @@ const TrialRunner = (() => {
     set onAllDone(fn) {
       onAllDone = fn;
     },
+    set onTrialComplete(fn) {
+      onTrialComplete = fn;
+    },
+    set onTerminated(fn) {
+      onTerminated = fn;
+    },
+    set attentionFailLimit(n) {
+      attentionFailLimit = Number(n);
+    },
   };
+})();
+
+/* ════════════════════════════════════════════════════════
+   Prediction score — cumulative across real blocks.
+   Reset after tutorial; shown once the first prediction fires.
+   ════════════════════════════════════════════════════════ */
+const PredictionScore = (() => {
+  const displayEl  = document.getElementById("score-display");
+  const correctEl  = document.getElementById("score-correct");
+  const totalEl    = document.getElementById("score-total");
+
+  let correct = 0;
+  let total   = 0;
+
+  function update() {
+    if (correctEl) correctEl.textContent = correct;
+    if (totalEl)   totalEl.textContent   = total;
+    if (total > 0 && displayEl) displayEl.classList.remove("hidden");
+  }
+
+  function record(isCorrect) {
+    if (isCorrect) correct++;
+    total++;
+    update();
+  }
+
+  function reset() {
+    correct = 0;
+    total   = 0;
+    update();
+    if (displayEl) displayEl.classList.add("hidden");
+  }
+
+  function getStats() { return { correct, total }; }
+
+  return { record, reset, getStats };
 })();
 
 /* ════════════════════════════════════════════════════════
@@ -1162,9 +1376,6 @@ const TrialRunner = (() => {
       .querySelectorAll(`.element-box.${HIGHLIGHT_BOX_CLASS}`)
       .forEach((el) => el.classList.remove(HIGHLIGHT_BOX_CLASS));
     document
-      .querySelectorAll(`.machine-element-layer.${HIGHLIGHT_CANVAS_CLASS}`)
-      .forEach((el) => el.classList.remove(HIGHLIGHT_CANVAS_CLASS));
-    document
       .querySelectorAll(`.caption-elem-chip.${HIGHLIGHT_CAPTION_CLASS}`)
       .forEach((el) => el.classList.remove(HIGHLIGHT_CAPTION_CLASS));
   }
@@ -1175,12 +1386,11 @@ const TrialRunner = (() => {
     document.querySelectorAll(`.element-slot-row[data-elem-id="${id}"]`)
       .forEach((el) => {
         el.classList.add(HIGHLIGHT_ROW_CLASS);
-        // Also highlight the whole cell container (requested "enter cell").
         const box = el.closest(".element-box");
         if (box) box.classList.add(HIGHLIGHT_BOX_CLASS);
       });
-    document.querySelectorAll(`.machine-element-layer[data-elem-id="${id}"]`)
-      .forEach((el) => el.classList.add(HIGHLIGHT_CANVAS_CLASS));
+    // Canvas element layers (.machine-element-layer) intentionally NOT highlighted:
+    // the element images are circular art in rectangular PNGs so the rect highlight looks odd.
     document.querySelectorAll(`.caption-elem-chip[data-elem-id="${id}"]`)
       .forEach((el) => el.classList.add(HIGHLIGHT_CAPTION_CLASS));
   }
@@ -1311,31 +1521,31 @@ const TrialGenerators = (() => {
   const t = (s) => Experiment.captionTextPart(s);
   const e = (id) => Experiment.captionElementPart(id);
 
-  function g(name) { return Experiment.machineNames.includes(name) ? name.toUpperCase() : String(name).toUpperCase(); }
-  const ENERGY_ELEM_ID = "True"; // img/elem_True.png — the "Energy element"
+  function g(name) { return Experiment.machineDisplayName(name); }
+  const ENERGY_ELEM_ID = "OutT"; // img/elem_OutT.png — the "Energy element"
 
   function captionAccept(machine, elem) {
     return [
-      { type: "machine", text: g(machine) }, t(` accepts `), e(elem),
+      { type: "machine", text: g(machine) }, t(` activates with `), e(elem),
       t(` and produces an Energy element `), e(ENERGY_ELEM_ID), t(`.`),
     ];
   }
   function captionReject(machine, elem) {
     return [
-      { type: "machine", text: g(machine) }, t(` rejects `), e(elem),
+      { type: "machine", text: g(machine) }, t(` stays idle with `), e(elem),
       t(`. No Energy element is produced.`),
     ];
   }
 
   function observation(machine, elem, state, opts = {}) {
-    const verb = state === "a" ? "accepts" : "rejects";
+    const stateLabel = state === "a" ? "activates" : "stays idle";
     const resState = state === "a" ? "a" : "r";
     const resElem  = state === "a" ? ENERGY_ELEM_ID : null;
 
     return {
       _trialType: "observation",
       title: opts.title ?? "Observation",
-      preamble: opts.preamble ?? `Observe: ${g(machine)} ${verb} an element.`,
+      preamble: opts.preamble ?? `Observe: ${g(machine)} ${stateLabel} with an element.`,
       wipeTable: opts.wipeTable ?? false,
       specs: [{
         machines: [machine, "res"],
@@ -1354,11 +1564,11 @@ const TrialGenerators = (() => {
       _trialType: "prediction",
       type: "question",
       title: opts.title ?? "Prediction",
-      preamble: opts.preamble ?? "Will this machine accept this element?",
+      preamble: opts.preamble ?? "Will this machine activate with this element?",
       question: {
         machine,
         elem,
-        caption: [t(`Will `), { type: "machine", text: g(machine) }, t(` accept `), e(elem), t("?")],
+        caption: [t(`Will `), { type: "machine", text: g(machine) }, t(` activate with `), e(elem), t("?")],
       },
       specs: [{
         machines: [machine, "res"],
@@ -1375,13 +1585,15 @@ const TrialGenerators = (() => {
 
     return {
       _trialType: "attention_check",
+      _lockedAnswer: opts.lockedAnswer ?? null,
+      _isTutorial:  opts.isTutorial  ?? false,
       type: "question",
       title: opts.title ?? "Memory Check",
-      preamble: opts.preamble ?? "You have seen this before. Did this machine accept or reject this element?",
+      preamble: opts.preamble ?? "You have seen this before. Did this machine activate or stay idle with this element?",
       question: {
         machine,
         elem,
-        caption: [t(`Did ${g(machine)} accept or reject `), e(elem), t("?")],
+        caption: [t(`Did ${g(machine)} activate or stay idle with `), e(elem), t("?")],
       },
       specs: [{
         machines: [machine, "res"],
@@ -1399,14 +1611,14 @@ const TrialGenerators = (() => {
    Page helpers — shared by intro, block transitions, and end screen
    ═══════════════════════════════════════════════════════════════ */
 const PageHelpers = (() => {
-  const ENERGY_ELEM_ID = "True";
+  const ENERGY_ELEM_ID = "OutT";
 
   function elemImg(id, size = 42) {
     return `<img class="intro-icon" src="img/elem_${id}.png" alt="${id}" style="height:${size}px;width:${size}px;">`;
   }
 
   function machineSrc(machine, state) {
-    if (/^m[1-6]$/i.test(String(machine))) {
+    if (/^m\d+$/i.test(String(machine))) {
       return `img/${String(machine).toUpperCase()}_${state}.png`;
     }
     return `img/${machine}_${state}.png`;
@@ -1432,102 +1644,122 @@ const PageHelpers = (() => {
 
   const scalePreview = `<div class="intro-scale-preview">
     <div id="intro-scale-static" style="display:flex;align-items:center;gap:16px;max-width:780px;width:100%;">
-      <span class="scale-label scale-label--left">Definitely Accept</span>
+      <span class="scale-label scale-label--left">Definitely Active</span>
       <div class="scale-options">
         <label class="scale-option"><span class="scale-pip"></span></label>
         <label class="scale-option"><span class="scale-pip"></span></label>
         <label class="scale-option"><span class="scale-pip"></span></label>
         <label class="scale-option"><span class="scale-pip"></span></label>
       </div>
-      <span class="scale-label scale-label--right">Definitely Reject</span>
+      <span class="scale-label scale-label--right">Definitely Idle</span>
     </div>
   </div>`;
 
   const binaryPreview = `<div class="intro-binary-preview">
-    <button class="binary-btn binary-btn--accept" type="button" disabled>Accept</button>
-    <button class="binary-btn binary-btn--reject" type="button" disabled>Reject</button>
+    <button class="binary-btn binary-btn--accept" type="button" disabled>Active</button>
+    <button class="binary-btn binary-btn--reject" type="button" disabled>Idle</button>
   </div>`;
 
-  const elemIds = ["A","B","C","D","E","F","G","H","I","J","K","L"];
-  const elemGallery = elemIds.map(id =>
-    `<div class="intro-elem-item">${elemImg(id, 52)}<span>${id}</span></div>`
-  ).join("");
+  /** @param {Record<string,string>} roleToElementId — role alias (e.g. "eA") -> actual element id (e.g. "C3") */
+  function buildElemGallery(roleToElementId) {
+    return Object.entries(roleToElementId).map(([role, id]) => {
+      const label = role.replace(/^e/, ""); // "eA" -> "A" for subject-facing display
+      return `<div class="intro-elem-item">${elemImg(id, 52)}<span>${label}</span></div>`;
+    }).join("");
+  }
 
-  return { ENERGY_ELEM_ID, elemImg, machineSrc, canvasPreview, scalePreview, binaryPreview, elemIds, elemGallery };
+  return { ENERGY_ELEM_ID, elemImg, machineSrc, canvasPreview, scalePreview, binaryPreview, buildElemGallery };
 })();
 
 /* ═══════════════════════════════════════════════════════════════
    Introduction page content
    ═══════════════════════════════════════════════════════════════ */
-const INTRO_PAGES = (() => {
-  const { ENERGY_ELEM_ID, elemImg, canvasPreview, scalePreview, binaryPreview, elemGallery } = PageHelpers;
+/**
+ * @param {object} resolved — output of BlockConfig.resolve()
+ * @param {Record<string,string>} roleToElementId — e.g. { eA: "D1", eB: "B1", ... }
+ * @param {string[][]} resolved.machineNamesPerBlock — e.g. [["m1","m2","m3"], ...]
+ */
+function buildIntroPages(resolved) {
+  const { ENERGY_ELEM_ID, elemImg, canvasPreview, scalePreview, binaryPreview } = PageHelpers;
   const EI = (sz) => elemImg(ENERGY_ELEM_ID, sz);
+
+  const ids = Object.values(resolved.roleToElementIdPerBlock[0]);
+  const [exA, exB, exC, exD] = ids;
+  const [m1, m2] = resolved.machineNamesPerBlock[0];
+
+  const numBlocks = resolved.machineNamesPerBlock.length;
+
+  // Random 6-element gallery for "The Elements" slide — no labels (arbitrary symbols).
+  const shuffled = [...ids].sort(() => Math.random() - 0.5);
+  const sample6Gallery = shuffled.slice(0, 6).map((id) =>
+    `<div class="intro-elem-item">${elemImg(id, 52)}</div>`
+  ).join("");
+
+  const m1Name = Experiment.machineDisplayName(m1);
+  const m2Name = Experiment.machineDisplayName(m2);
 
   return [
     `<h2>Welcome, Investigator</h2>
      <p>Your team has recovered a trove of <strong>alien artifacts</strong>
-     from a recently discovered site. Among them are <strong>six machines</strong>
-     and <strong>twelve elements</strong> — small objects marked with unique symbols.</p>
+     from a recently discovered site. Among them are <strong>twelve machines</strong>
+     and a collection of <strong>elements</strong> — small objects marked with unique symbols.</p>
      <p>Early tests show that when the <em>right</em> element is placed inside a
      machine, it springs to life — heating up and emitting a brilliant
      <span class="intro-highlight hl-orange">orange glow</span>. When activated,
      the machine <strong>produces a brand-new element</strong> the team has
-     nicknamed the ${EI(22)} <strong>"Energy" element</strong>, because it can
+     nicknamed the ${EI(22)} <strong>Energy element</strong>, because it can
      be used as an extraordinarily powerful energy source.</p>
      <p>When the wrong element is used, the machine stays
-     <span class="intro-highlight hl-blue">cold and inactive</span>
+     <span class="intro-highlight hl-blue">cold and idle</span>
      and produces nothing.</p>
      <p>Your mission: help the team <strong>figure out which elements activate
-     each machine</strong> so we can reliably produce Energy elements.</p>`,
+     each machine</strong> so we can reliably produce Energy elements.
+     A single Energy element can keep an outpost running for days.</p>`,
 
     `<h2>The Elements</h2>
-     <p>We have catalogued <strong>12 elements</strong> so far.
-     Each bears a unique symbol and is labelled A through L:</p>
-     <div class="intro-elem-gallery">${elemGallery}</div>
-     <div class="intro-callout callout-gray">
-       The symbols appear to have no inherent meaning — they are simply
-       identifiers. However, we suspect that <strong>some elements may behave
-       similarly</strong> when presented to certain machines.
+     <p>The elements are small objects, each bearing a unique symbol. Here is a
+     random selection to give you a sense of what they look like:</p>
+     <div class="intro-elem-gallery" style="grid-template-columns:repeat(6,1fr);">
+       ${sample6Gallery}
      </div>
      <p>There is one additional element the machines can <em>create</em>:</p>
      <div class="intro-elem-gallery" style="margin-bottom:8px;">
        <div class="intro-elem-item">${EI(52)}<span>Energy</span></div>
      </div>
      <p>The ${EI(20)} <strong>Energy element</strong> is produced by an activated
-     machine. It is the valuable resource your team is after — a single Energy
-     element can power an entire research outpost.</p>`,
+     machine. It is the valuable resource your team is after.</p>`,
 
     `<h2>The Machines</h2>
-     <p>The six machines are labelled <strong>M1</strong> through <strong>M6</strong>.
-     Each machine has two possible reactions when an element is placed inside:</p>
+     <p>The twelve machines are labelled <strong>Machine 1</strong> through
+     <strong>Machine 12</strong>. Each machine has two possible states when an
+     element is placed inside:</p>
      <ul>
-       <li><span class="intro-highlight hl-orange">Accept</span> — the machine
-       heats up, becomes activated, and <strong>produces</strong> an
-       ${EI(18)} Energy element.</li>
-       <li><span class="intro-highlight hl-blue">Reject</span> — the machine stays
-       cold and inactive. <strong>No element is produced.</strong></li>
+       <li><span class="intro-highlight hl-orange">Active</span> — the machine
+       heats up and <strong>produces</strong> an ${EI(18)} Energy element.</li>
+       <li><span class="intro-highlight hl-blue">Idle</span> — the machine stays
+       cold. <strong>No element is produced.</strong></li>
      </ul>
      <p>By default, every machine is in its
-     <span class="intro-highlight hl-blue">inactive (reject) state</span>.
-     Only the right input element will activate it and cause it to produce
-     the Energy element.</p>`,
+     <span class="intro-highlight hl-blue">idle state</span>.
+     Only the correct element will activate it. The machines behave
+     deterministically — if a machine activates (or stays idle) with an element,
+     it will always do so.</p>`,
 
-    `<h2>Accept — Machine Activated</h2>
-     <p>When a machine <strong>accepts</strong> an element, it glows orange.
-     The output module on the right receives the ${EI(22)}
-     <strong>Energy element</strong> that the machine has just produced:</p>
-     ${canvasPreview("m1", "a", { elem: "A", token: ENERGY_ELEM_ID })}
+    `<h2>Active — Machine Activated</h2>
+     <p>When the correct element is placed, the machine <strong>activates</strong>:
+     it glows orange and the output module on the right receives the ${EI(22)}
+     <strong>Energy element</strong>:</p>
+     ${canvasPreview(m1, "a", { elem: exA, token: ENERGY_ELEM_ID })}
      <p style="text-align:center;opacity:0.65;font-size:0.9rem;">
-       M1 accepts element A and produces an Energy element.</p>
-    `,
+       ${m1Name} activates and produces an Energy element.</p>`,
 
-    `<h2>Reject — Machine Inactive</h2>
-     <p>When a machine <strong>rejects</strong> an element, it stays blue and
-     the output module remains empty — <strong>no Energy element is
-     produced</strong>:</p>
-     ${canvasPreview("m1", "r", { elem: "C" })}
+    `<h2>Idle — Machine Inactive</h2>
+     <p>When the wrong element is placed, the machine <strong>stays idle</strong>:
+     it remains blue and the output module is empty — <strong>no Energy element
+     is produced</strong>:</p>
+     ${canvasPreview(m1, "r", { elem: exB })}
      <p style="text-align:center;opacity:0.65;font-size:0.9rem;">
-       M1 rejects element C — no Energy element.</p>`,
+       ${m1Name} stays idle — no Energy element.</p>`,
 
     `<h2>The Interface</h2>
      <h3>Right — the Canvas</h3>
@@ -1536,100 +1768,122 @@ const INTRO_PAGES = (() => {
      explains what happened.</p>
      <h3>Left — the Knowledge Table</h3>
      <p>The panel on the left keeps a running record of what you've observed.
-     Each block features two machines, so the table has
-     <strong>two rows</strong> (one per machine) and <strong>two columns</strong>:</p>
+     Each block features three machines, so the table has
+     <strong>three rows</strong> (one per machine) and <strong>two columns</strong>:</p>
      <ul>
-       <li><span class="intro-highlight hl-orange">Accept</span> — elements this
-       machine has accepted (and therefore produced an Energy element).</li>
-       <li><span class="intro-highlight hl-blue">Reject</span> — elements this
-       machine has rejected.</li>
+       <li><span class="intro-highlight hl-orange">Active</span> — elements that
+       activated this machine (producing an Energy element).</li>
+       <li><span class="intro-highlight hl-blue">Idle</span> — elements that left
+       this machine idle.</li>
      </ul>
      <p>The table updates automatically and persists throughout the block.
      You can also <strong>hover over any element on the canvas or in the
-     caption</strong> to highlight where it appears in the table — we will
-     walk you through this on the first trial.</p>`,
+     caption</strong> to highlight where it appears in the table.</p>`,
 
     `<h2>Observation Trials</h2>
      <p>In an observation trial you <strong>watch</strong> a machine process an
      element. The result appears on the canvas and is recorded in the knowledge
      table. Press <strong>Next Trial</strong> to advance.</p>
-     ${canvasPreview("m2", "a", { elem: "D", token: ENERGY_ELEM_ID })}
+     ${canvasPreview(m2, "a", { elem: exC, token: ENERGY_ELEM_ID })}
      <p style="text-align:center;opacity:0.65;font-size:0.9rem;">
-       Example: M2 accepts element D and produces an Energy element.</p>
-     ${canvasPreview("m2", "r", { elem: "E" })}
+       Example: ${m2Name} activates and produces an Energy element.</p>
+     ${canvasPreview(m2, "r", { elem: exD })}
      <p style="text-align:center;opacity:0.65;font-size:0.9rem;">
-       Example: M2 rejects element E — no Energy element.</p>`,
+       Example: ${m2Name} stays idle — no Energy element.</p>`,
 
     `<h2>Prediction Trials</h2>
-     <p>In a prediction trial the machine appears <em>greyed out</em> with an
+     <p>In a prediction trial the machine appears in its
+     <span class="intro-highlight hl-blue">idle state</span> with an
      element placed on it. You are asked:</p>
-     ${canvasPreview("m1", "a", { elem: "F", greyed: true })}
+     ${canvasPreview(m1, "r", { elem: exA })}
      <div class="intro-callout callout-gray" style="text-align:center;">
-       <em>"Will this machine accept this element?"</em>
+       <em>"Will this machine activate with this element?"</em>
      </div>
-     <p>Use the <strong>5-point scale</strong> to indicate your confidence:</p>
+     <p>Use the <strong>4-point scale</strong> to indicate your confidence:</p>
      ${scalePreview}
      <ul>
-       <li><span class="intro-highlight hl-orange">Definitely Accept</span> (left)
-       — you are very confident the machine will accept and produce Energy.</li>
-       <li><span class="intro-highlight hl-blue">Definitely Reject</span> (right)
-       — you are very confident the machine will reject.</li>
-       <li>The middle point means you are unsure.</li>
+       <li><span class="intro-highlight hl-orange">Definitely Active</span> (left)
+       — you are very confident the machine will activate and produce Energy.</li>
+       <li><span class="intro-highlight hl-blue">Definitely Idle</span> (right)
+       — you are very confident the machine will stay idle.</li>
+       <li>The middle points mean you are uncertain.</li>
      </ul>
      <p>Once you respond, the <strong>Continue</strong> button lights up.
      Press it to reveal the actual outcome.</p>`,
 
     `<h2>Memory Checks</h2>
      <p>Occasionally you will be asked about a machine–element combination you
-     have <strong>already seen</strong>. For these trials two buttons appear
-     instead of the scale:</p>
-     ${canvasPreview("m1", "a", { elem: "A", greyed: true })}
+     have <strong>already seen</strong>. Two buttons appear instead of the scale:</p>
+     ${canvasPreview(m1, "r", { elem: exA })}
      ${binaryPreview}
-     <p>Click the button matching what you remember. After pressing
-     <strong>Continue</strong>, the correct answer is revealed.</p>
+     <p>Click the button matching what you observed, then press
+     <strong>Continue</strong> to move on.</p>
      <div class="intro-callout callout-gray">
        Pay attention — answering these correctly is important.
+       You may fail at most <strong>two</strong> memory checks before the
+       experiment ends.
      </div>`,
-
-    `<h2>Experiment Structure</h2>
-     <p>The experiment is divided into <strong>three blocks</strong>. In each
-     block, you will focus on a different pair of machines:</p>
-     <ul>
-       <li><strong>Block 1</strong> — M1 &amp; M2</li>
-       <li><strong>Block 2</strong> — M3 &amp; M4</li>
-       <li><strong>Block 3</strong> — M5 &amp; M6</li>
-     </ul>
-     <p>At the start of each block, the knowledge table resets for the new pair.
-     Each block contains a mix of observations, predictions, and memory
-     checks.</p>
-     <p>Your advice will guide the team's strategy, so take your time and give
-     the best predictions you can.</p>
-     <p><strong>Ready?</strong> The first block begins now. We'll start with a
-     short guided walkthrough — good luck, Investigator!</p>`,
   ];
-})();
+}
 
 /* ═══════════════════════════════════════════════════════════════
    Block transition pages
    ═══════════════════════════════════════════════════════════════ */
-function blockTransitionPages(blockNum, pair) {
+/**
+ * @param {number}   blockNum
+ * @param {string[]} machines  — e.g. ["m4","m5","m6"]
+ * @param {string[]} elemIds   — resolved element ids appearing in this block's trials
+ */
+function blockTransitionPages(blockNum, machines, elemIds, displayLabels = {}) {
   const { elemImg, ENERGY_ELEM_ID, canvasPreview } = PageHelpers;
-  const m1 = pair[0].toUpperCase();
-  const m2 = pair[1].toUpperCase();
 
-  return [
-    `<h2>Block ${blockNum}: ${m1} &amp; ${m2}</h2>
-     <p>Excellent work so far. The team is now moving on to the next pair of
-     machines.</p>
-     <p>In this block you will investigate <strong>${m1}</strong> and
-     <strong>${m2}</strong>. As before, your goal is to determine which elements
-     activate each machine so the team can produce
-     ${elemImg(ENERGY_ELEM_ID, 18)} Energy elements efficiently.</p>
-     ${canvasPreview(pair[0], "a", { elem: "A", greyed: true })}
-     <p>The knowledge table has been reset for these two machines. The same
-     trial types apply — observations, predictions, and memory checks.</p>
-     <p>Ready? Let's begin Block ${blockNum}.</p>`,
-  ];
+  const isFirst = blockNum === 1;
+  const opener = isFirst
+    ? "Let's get started."
+    : "Excellent work. The team is now moving on to the next group of machines.";
+
+  const sortedElemIds = [...elemIds].sort((a, b) => {
+    const la = displayLabels[a.toUpperCase()] ?? a;
+    const lb = displayLabels[b.toUpperCase()] ?? b;
+    return la.localeCompare(lb);
+  });
+  const cols = Math.min(sortedElemIds.length, 6);
+  const elemGallery = sortedElemIds.map((id) => {
+    const label = displayLabels[id.toUpperCase()] ?? id;
+    return `<div class="intro-elem-item">${elemImg(id, 52)}<span>${label}</span></div>`;
+  }).join("");
+
+  // Page 1 — elements
+  const elemPage =
+    `<h2>Block ${blockNum} — Elements</h2>
+     <p>${opener} In this block you will be working with the following
+     <strong>${elemIds.length} elements</strong>:</p>
+     <div class="intro-elem-gallery" style="grid-template-columns:repeat(${cols},1fr);">
+       ${elemGallery}
+     </div>
+     <div class="intro-callout callout-gray">
+       The element labels are <strong>arbitrary identifiers</strong> — they carry no inherent meaning.
+       The Knowledge Table has been reset and will track each machine's
+       active / idle history for these elements throughout the block.
+     </div>`;
+
+  // One page per machine — machine + res in idle state
+  const machinePages = machines.map((m, i) => {
+    const mName = Experiment.machineDisplayName(m);
+    const isLast = i === machines.length - 1;
+    return `<h2>Block ${blockNum} — ${mName}</h2>
+     <p><strong>${mName}</strong> is one of the machines you will
+     investigate in this block. Here it is in its default
+     <span class="intro-highlight hl-blue">idle state</span>:</p>
+     ${canvasPreview(m, "r", {})}
+     ${isLast
+       ? `<p>Now you know all the machines for this block. The trials will
+          begin on the next screen — good luck!</p>`
+       : `<p>On the next page you'll see the next machine for this block.</p>`
+     }`;
+  });
+
+  return [elemPage, ...machinePages];
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1642,22 +1896,27 @@ const Tutorial = (() => {
   const ttBtn     = document.getElementById("tutorial-btn");
   const ttArrow   = document.getElementById("tutorial-arrow");
 
+  // Full-screen backdrop that blocks all page interaction while a step is shown.
+  const backdrop = document.createElement("div");
+  backdrop.style.cssText = "position:fixed;inset:0;z-index:9999;display:none;";
+  document.body.appendChild(backdrop);
+
   let steps = [];
   let stepIdx = -1;
   let active = false;
-  let cleanup = null;
   let onDone = null;
 
   function show() {
+    backdrop.style.display = "block";
     spotlight.classList.remove("hidden");
     tooltip.classList.remove("hidden");
   }
 
   function hide() {
+    backdrop.style.display = "none";
     spotlight.classList.add("hidden");
     tooltip.classList.add("hidden");
     active = false;
-    if (cleanup) { cleanup(); cleanup = null; }
     if (typeof onDone === "function") onDone();
   }
 
@@ -1729,7 +1988,6 @@ const Tutorial = (() => {
   }
 
   function runStep(idx) {
-    if (cleanup) { cleanup(); cleanup = null; }
     if (idx >= steps.length) { hide(); return; }
     stepIdx = idx;
     const step = steps[idx];
@@ -1744,29 +2002,9 @@ const Tutorial = (() => {
     positionSpotlight(target, pad);
     positionTooltip(target, step.position ?? "bottom");
     ttText.innerHTML = step.text;
+    ttBtn.textContent = step.buttonText ?? "Got it";
 
     if (step.onEnter) step.onEnter();
-
-    if (step.action === "mouseover") {
-      ttBtn.style.display = "none";
-      const evtTarget = step.eventTarget
-        ? document.querySelector(step.eventTarget) : target;
-      const sel = step.eventSelector ?? "[data-elem-id]";
-
-      const handler = (ev) => {
-        const hit = ev.target.closest(sel);
-        if (hit) {
-          evtTarget.removeEventListener("mouseover", handler, true);
-          cleanup = null;
-          setTimeout(() => advance(), step.delay ?? 600);
-        }
-      };
-      evtTarget.addEventListener("mouseover", handler, true);
-      cleanup = () => evtTarget.removeEventListener("mouseover", handler, true);
-    } else {
-      ttBtn.style.display = "";
-      ttBtn.textContent = step.buttonText ?? "Got it";
-    }
   }
 
   function advance() {
@@ -1790,71 +2028,369 @@ const Tutorial = (() => {
 })();
 
 /* ═══════════════════════════════════════════════════════════════
-   DEMO EXPERIMENT — 3 blocks (M1/M2, M3/M4, M5/M6)
+   BlockConfig — loads block layout from public/data/blocks-config.json
+   and resolves the random (or fixed) machine-group / element-role
+   assignment for this session into concrete trial arrays.
    ═══════════════════════════════════════════════════════════════ */
-(function runExperiment() {
-  const obs = TrialGenerators.observation;
-  const pred = TrialGenerators.prediction;
-  const attn = TrialGenerators.attentionCheck;
+const BlockConfig = (() => {
+  async function load() {
+    const res = await fetch("data/blocks-config.json");
+    return res.json();
+  }
 
-  const block1 = [
-    obs("m1", "A", "a", { title: "Observation 1" }),
-	obs("m1", "D", "a", { title: "Observation 2" }),
-	obs("m1", "B", "r", { title: "Observation 3" }),
-	attn("m1", "D", "a", { title: "Attention Check 1" }),
-	obs("m1", "E", "a", { title: "Observation 4" }),
-	obs("m1", "J", "r", { title: "Observation 5" }),
-	
-	obs("m2", "D", "a", { title: "Observation 6" }),
-	attn("m2", "D", "a", { title: "Attention Check 2" }),
-	pred("m2", "A", "a", { title: "Prediction 1" }),
-	pred("m2", "E", "a", { title: "Prediction 2" }),
-	obs("m2", "C", "r", { title: "Observation 7" }),
-	pred("m2", "B", "a", { title: "Prediction 3" }),
-  ];
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
 
-  const block2 = [
-    obs("m4", "L", "a", { title: "Observation 1" }),
-    obs("m4", "I", "a", { title: "Observation 2" }),
-    obs("m4", "K", "r", { title: "Observation 3" }),
-    obs("m4", "D", "r", { title: "Observation 4" }),
-	attn("m4", "K", "r", { title: "Attention Check 1" }),
-	obs("m4", "F", "a", { title: "Observation 5" }),
-	obs("m4", "G", "r", { title: "Observation 6" }),
-	
-	obs("m3", "G", "a", { title: "Observation 7" }),
-	obs("m3", "A", "r", { title: "Observation 8" }),
-	attn("m3", "G", "a", { title: "Attention Check 2" }),
-	pred("m3", "K", "a", { title: "Prediction 1" }),
-	pred("m3", "D", "a", { title: "Prediction 2" }),
-	obs("m3", "E", "r", { title: "Observation 9" }),
-	
-	obs("m3", "H", "a", { title: "Observation 10" }),
-	attn("m4", "D", "r", { title: "Attention Check 3" }),
-	pred("m4", "H", "r", { title: "Prediction 3" }),
-  ];
+  /** Machine aliases referenced within a block, e.g. ["m1", "m2", "m3"] (sorted, deduped). */
+  function collectMachineAliases(blockDef) {
+    const set = new Set();
+    blockDef.trials.forEach((t) => set.add(t.machineSlot));
+    return [...set].sort();
+  }
 
-  const block3 = [
-    obs("m5", "G", "a", { title: "Observation 1" }),
-	obs("m5", "C", "a", { title: "Observation 2" }),
-	obs("m5", "K", "r", { title: "Observation 3" }),
-	obs("m5", "I", "r", { title: "Observation 4" }),
-	attn("m5", "K", "r", { title: "Attention Check 1" }),
+  /** Element role aliases referenced anywhere in the config, e.g. ["eA", "eB", ...] (sorted, deduped). */
+  function collectElementRoles(config) {
+    const set = new Set();
+    config.blocks.forEach((b) => b.trials.forEach((t) => set.add(t.elementRole)));
+    return [...set].sort();
+  }
 
-	obs("m6", "C", "a", { title: "Observation 5" }),
-	obs("m6", "K", "a", { title: "Observation 6" }),
-	attn("m6", "C", "a", { title: "Attention Check 2" }),
-	pred("m6", "G", "a", { title: "Prediction 1" }),
-	pred("m6", "I", "a", { title: "Prediction 2" }),
-	obs("m6", "B", "r", { title: "Observation 7" }),
-	obs("m6", "F", "r", { title: "Observation 8" }),
+  /**
+   * @returns {Record<string, number>[]} one { aliasm1: machineId, ... } map per block
+   */
+  function resolveMachinesPerBlock(config) {
+    const { groups } = config.machines;
+    const rnd = config.randomization;
+    const numBlocks = config.blocks.length;
 
-	obs("m6", "H", "a", { title: "Observation 9" }),
-	attn("m5", "K", "r", { title: "Attention Check 3" }),
-	pred("m5", "H", "r", { title: "Prediction 4" }),
-  ];
+    const groupIndexForBlock = rnd.randomizeGroupSelection
+      ? shuffle(groups.map((_, i) => i)).slice(0, numBlocks)
+      : groups.map((_, i) => i).slice(0, numBlocks);
+
+    return config.blocks.map((blockDef, blockIdx) => {
+      const group = groups[groupIndexForBlock[blockIdx]];
+      const aliases = collectMachineAliases(blockDef);
+      if (aliases.length > group.length) {
+        throw new Error(
+          `Block ${blockIdx + 1} uses ${aliases.length} machine aliases (${aliases.join(", ")}) ` +
+          `but its machine group only has ${group.length} machines`,
+        );
+      }
+      const order = rnd.randomizeSlotOrderWithinGroup ? shuffle(group) : [...group];
+
+      const aliasToMachineId = {};
+      aliases.forEach((alias, i) => { aliasToMachineId[alias] = order[i]; });
+      return aliasToMachineId;
+    });
+  }
+
+  /**
+   * Resolves each element role alias to a major class letter (no variant yet).
+   * Shuffled once so all blocks share the same major-class assignment.
+   * @returns {Record<string,string>} e.g. { eA: "D", eB: "B", eC: "I", ... }
+   */
+  function resolveRolesToMajorClasses(config) {
+    const { majorClasses } = config.elements;
+    const rnd = config.randomization;
+    const roles = collectElementRoles(config);
+
+    if (roles.length > majorClasses.length) {
+      throw new Error(
+        `Element alias capacity exceeded: ${roles.length} aliases used (${roles.join(", ")}) ` +
+        `but only ${majorClasses.length} major element classes are available`,
+      );
+    }
+
+    const classesForRoles = rnd.randomizeElementMapping
+      ? shuffle([...majorClasses]).slice(0, roles.length)
+      : majorClasses.slice(0, roles.length);
+
+    return Object.fromEntries(roles.map((role, i) => [role, classesForRoles[i]]));
+  }
+
+  /**
+   * Applies a minor variant number to a major-class map, producing full element ids.
+   * @param {Record<string,string>} rolesToMajorClasses e.g. { eA: "D", eB: "B" }
+   * @param {number} variant 1–4
+   * @returns {Record<string,string>} e.g. { eA: "D2", eB: "B2" }
+   */
+  function applyVariant(rolesToMajorClasses, variant) {
+    return Object.fromEntries(
+      Object.entries(rolesToMajorClasses).map(([role, cls]) => [role, `${cls}${variant}`])
+    );
+  }
+
+  /**
+   * Returns the minor variant to use for a given block.
+   * Priority: blockDef.minorVariant > randomizeMinorVariant > default 1.
+   */
+  function getVariantForBlock(rnd, blockDef) {
+    if (blockDef.minorVariant != null) return blockDef.minorVariant;
+    if (rnd.randomizeMinorVariant) return 1 + Math.floor(Math.random() * 4);
+    return 1;
+  }
+
+  function buildBlockTrials(blockDef, aliasToMachineId, roleToElementId) {
+    const generators = {
+      observation: TrialGenerators.observation,
+      prediction: TrialGenerators.prediction,
+      attentionCheck: TrialGenerators.attentionCheck,
+    };
+
+    const typeTitles = { observation: "Observation", attentionCheck: "Attention Check", prediction: "Prediction" };
+    const counters = {};
+
+    return blockDef.trials.map((t) => {
+      const machineId = aliasToMachineId[t.machineSlot];
+      if (machineId == null) throw new Error(`Unknown machine alias "${t.machineSlot}"`);
+      const elem = roleToElementId[t.elementRole];
+      if (elem == null) throw new Error(`Unknown element role alias "${t.elementRole}"`);
+      const generate = generators[t.type];
+      if (!generate) throw new Error(`Unknown trial type: ${t.type}`);
+      if (!["a", "r"].includes(t.state)) {
+        throw new Error(`Invalid state "${t.state}" for trial type "${t.type}" (expected a/r)`);
+      }
+      counters[t.type] = (counters[t.type] ?? 0) + 1;
+      const autoTitle = typeTitles[t.type] ? `${typeTitles[t.type]} ${counters[t.type]}` : t.title;
+      const trial = generate(`m${machineId}`, elem, t.state, {
+        title:        autoTitle,
+        preamble:     t.preamble,
+        lockedAnswer: t.lockedAnswer,
+        isTutorial:   t.isTutorial,
+      });
+      trial._meta = {
+        role:          t.elementRole,
+        elemId:        elem,
+        correctAnswer: t.state,
+        critical:      t.critical ?? false,
+      };
+      return trial;
+    });
+  }
+
+  function resolveTutorial(config) {
+    const tut = config.tutorial;
+    if (!tut) return null;
+
+    const machAliases = collectMachineAliases(tut);
+    const aliasToMachineId = {};
+    machAliases.forEach((alias) => {
+      const slotN = parseInt(alias.slice(1), 10) - 1;
+      aliasToMachineId[alias] = tut.machines[slotN];
+    });
+
+    const roles = [...new Set(tut.trials.map((t) => t.elementRole))].sort();
+    const classes = tut.majorClasses ?? config.elements.majorClasses;
+    const roleToElem = {};
+    roles.forEach((role, i) => { roleToElem[role] = `${classes[i]}1`; });
+
+    const trials = buildBlockTrials(tut, aliasToMachineId, roleToElem);
+    const machines = machAliases.sort().map((a) => `m${aliasToMachineId[a]}`);
+    return { trials, machines, roleToElem };
+  }
+
+  /**
+   * @returns {{
+   *   blocks: object[][],
+   *   machineNamesPerBlock: string[][],
+   *   roleToElementIdPerBlock: Record<string,string>[],
+   *   tutorial: {trials,machines}|null
+   * }}
+   */
+  async function resolve() {
+    const config = await load();
+    const aliasMapsPerBlock = resolveMachinesPerBlock(config);
+    const roles = collectElementRoles(config);
+    const { majorClasses } = config.elements;
+    const rnd = config.randomization;
+
+    // Each block draws independently from the full major-class pool.
+    const roleToElementIdPerBlock = config.blocks.map((blockDef) => {
+      const rolesToMajorClasses = resolveRolesToMajorClasses(config);
+      return applyVariant(rolesToMajorClasses, getVariantForBlock(rnd, blockDef));
+    });
+
+    const blocks = config.blocks.map((blockDef, i) =>
+      buildBlockTrials(blockDef, aliasMapsPerBlock[i], roleToElementIdPerBlock[i]),
+    );
+    const machineNamesPerBlock = aliasMapsPerBlock.map((aliasMap) =>
+      Object.keys(aliasMap).sort().map((alias) => `m${aliasMap[alias]}`),
+    );
+    const tutorial = resolveTutorial(config);
+
+    const debug = config.debug ?? {};
+    const blockConditions = config.blocks.map(b => b.condition ?? null);
+    return { blocks, machineNamesPerBlock, roleToElementIdPerBlock, tutorial, debug, blockConditions };
+  }
+
+  return { resolve };
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+   DEMO EXPERIMENT — 3 blocks, each with 3 machines drawn from a
+   randomized (or fixed) machine group; see blocks-config.json
+   ═══════════════════════════════════════════════════════════════ */
+(async function runExperiment() {
+  const resolved = await BlockConfig.resolve();
+  const { tutorial, debug } = resolved;
+
+  // Apply debug overrides
+  if (debug.attentionFailLimit != null) TrialRunner.attentionFailLimit = debug.attentionFailLimit;
+  const skipIntro       = debug.skipIntro       ?? false;
+  const skipTutorial    = debug.skipTutorial    ?? false;
+  const skipTransitions = debug.skipTransitions ?? false;
+
+  // Session init — gets pid from server and server-assigned block presentation order
+  const session = await initSession();
+  const blockOrder = session.blockOrder;  // e.g. [1, 2, 3, 0]
+
+  const ordBlocks     = blockOrder.map(i => resolved.blocks[i]);
+  const ordMachines   = blockOrder.map(i => resolved.machineNamesPerBlock[i]);
+  const ordRoleToElem = blockOrder.map(i => resolved.roleToElementIdPerBlock[i]);
+  const ordConditions = blockOrder.map(i => resolved.blockConditions[i]);
+
+  function buildBlockDisplayLabels(roleToElementId, blockNum) {
+    const labels = {};
+    Object.entries(roleToElementId).forEach(([role, elemId]) => {
+      const majorClass = String(elemId).replace(/\d+$/, '');
+      labels[String(elemId).toUpperCase()] = `${majorClass}${blockNum}`;
+    });
+    return labels;
+  }
+
+  const ordLabels = ordRoleToElem.map((rte, i) => buildBlockDisplayLabels(rte, i + 1));
+
+  // Stamp each trial with its block/trial metadata so saveTrial has everything it needs
+  function annotateBlockTrials(block, blockNum, blockCondition, displayLabels) {
+    block.forEach((trial, i) => {
+      if (!trial._meta) trial._meta = {};
+      trial._meta.blockNum       = blockNum;
+      trial._meta.blockCondition = blockCondition;
+      trial._meta.trialNum       = i + 1;
+      const key = String(trial._meta.elemId ?? "").toUpperCase();
+      trial._meta.displayLabel   = displayLabels[key] ?? trial._meta.elemId;
+    });
+  }
+  ordBlocks.forEach((block, i) => annotateBlockTrials(block, i + 1, ordConditions[i], ordLabels[i]));
+
+  TrialRunner.onTrialComplete = (entry) => saveTrial(entry);
+  TrialRunner.onTerminated    = () => completeSession(true);
+
+  /** Unique non-energy element ids that appear in a resolved block's trial array. */
+  function blockElemIds(blockTrials) {
+    const seen = new Set();
+    blockTrials.forEach((trial) => {
+      const candidates = [
+        trial.question?.elem,
+        ...(trial.specs ?? []).map((s) => s.elems?.[0]),
+      ];
+      candidates.forEach((e) => {
+        if (e && !["outt", "outf", "energy"].includes(String(e).toLowerCase())) {
+          seen.add(e);
+        }
+      });
+    });
+    return [...seen];
+  }
 
   let tutorialDone = false;
+
+  function runTutorialBlock(onDone) {
+    if (!tutorial) { onDone(); return; }
+    // Set tutorial display labels (letter only, e.g. "A", "B")
+    const tutLabels = {};
+    Object.entries(tutorial.roleToElem).forEach(([role, elemId]) => {
+      tutLabels[String(elemId).toUpperCase()] = role.slice(1);
+    });
+    Experiment.setElementDisplayLabels(tutLabels);
+    Experiment.setBlock(tutorial.machines);
+    Experiment.wipeLeftTable();
+    PredictionScore.reset();
+
+    let tutAttnCount  = 0;
+    let tutPredShown  = false;
+
+    function correctAttnTutorial() {
+      Tutorial.start([
+        {
+          target: () => document.querySelector('#machine-canvas .machine-element-layer[data-elem-id]'),
+          position: "left",
+          padding: 20,
+          text: `<strong>Memory check!</strong> You've seen what this machine did with this element —
+                 the matching entry is highlighted in the Knowledge Table.`,
+          onEnter() {
+            const el = document.querySelector('#machine-canvas .machine-element-layer[data-elem-id]');
+            if (el) Tutorial.forceHighlight(el.dataset.elemId);
+          },
+          onLeave() { Tutorial.clearForcedHighlights(); },
+        },
+        {
+          target: "#binary-response-container",
+          position: "top",
+          padding: 12,
+          text: `This machine <strong>activated</strong> with this element. Select
+                 <strong>Active</strong> to confirm what you observed.`,
+        },
+      ]);
+    }
+
+    function wrongAttnTutorial() {
+      Tutorial.start([
+        {
+          target: "#binary-response-container",
+          position: "top",
+          padding: 12,
+          text: `Another memory check — but only <strong>Idle</strong> is selectable here.
+                 This lets you see what happens when a memory check is answered incorrectly.`,
+          onEnter() {
+            const el = document.querySelector('#machine-canvas .machine-element-layer[data-elem-id]');
+            if (el) Tutorial.forceHighlight(el.dataset.elemId);
+          },
+          onLeave() { Tutorial.clearForcedHighlights(); },
+        },
+      ]);
+    }
+
+    function predTutorial() {
+      Tutorial.start([
+        {
+          target: "#response-scale-container",
+          position: "top",
+          padding: 10,
+          text: `Now try a <strong>prediction</strong>! For now, just take a random guess —
+                 as the experiment continues you will gather more evidence to make
+                 more informed judgements.`,
+          action: "button",
+          buttonText: "Got it",
+        },
+      ]);
+    }
+
+    TrialRunner.onTrialStart = (trial, index) => {
+      if (index === 0 && !tutorialDone) {
+        setTimeout(() => firstTrialTutorial(), 350);
+      } else if (trial._isTutorial && trial._trialType === "attention_check") {
+        tutAttnCount++;
+        setTimeout(() => (tutAttnCount === 1 ? correctAttnTutorial() : wrongAttnTutorial()), 350);
+      } else if (trial._trialType === "prediction" && !tutPredShown) {
+        tutPredShown = true;
+        setTimeout(() => predTutorial(), 350);
+      }
+    };
+
+    TrialRunner.onAllDone = () => {
+      Experiment.wipeLeftTable();
+      PredictionScore.reset();
+      onDone();
+    };
+    TrialRunner.load(tutorial.trials, { keepResponses: false });
+  }
 
   function firstTrialTutorial(callback) {
     const nextBtn = document.getElementById("next-trial-btn");
@@ -1871,7 +2407,7 @@ const Tutorial = (() => {
         text: `This is the <strong>Canvas</strong>. It shows the machine on the
                left, the element being tested on top of it, and the output module
                on the right. Look — the machine just produced an
-               <img class="intro-icon" src="img/elem_True.png"
+               <img class="intro-icon" src="img/elem_OutT.png"
                style="height:20px;width:20px;"> <strong>Energy element</strong>!`,
         action: "button",
       },
@@ -1879,12 +2415,14 @@ const Tutorial = (() => {
         target: elemTarget,
         position: "left",
         padding: 20,
-        text: `Now <strong>hover your cursor over the element</strong> on the
-               machine to see how the Knowledge Table on the left responds.`,
-        action: "mouseover",
-        eventTarget: "#machine-canvas",
-        eventSelector: ".machine-element-layer[data-elem-id]",
-        delay: 400,
+        text: `That element is now recorded in the <strong>Knowledge Table</strong>
+               on the left. You can also hover over elements on the canvas at any
+               time to highlight their entries in the table.`,
+        onEnter() {
+          const el = document.querySelector('#machine-canvas .machine-element-layer[data-elem-id]');
+          if (el) Tutorial.forceHighlight(el.dataset.elemId);
+        },
+        onLeave() { Tutorial.clearForcedHighlights(); },
       },
       {
         target: "#element-grid",
@@ -1924,48 +2462,115 @@ const Tutorial = (() => {
     });
   }
 
-  function runBlock(pair, trials, next) {
-    Experiment.setBlock(pair);
+  function launchBlock(blockIdx, next) {
+    const labels = ordLabels[blockIdx];
+    Experiment.setElementDisplayLabels(labels);
+    saveElementMapping(blockIdx + 1, ordConditions[blockIdx], ordRoleToElem[blockIdx], labels);
+    Experiment.setBlock(ordMachines[blockIdx]);
     TrialRunner.onAllDone = () => {
-      console.log(`Block done (${pair}). Responses so far:`, TrialRunner.responses.length);
+      console.log(`Block ${blockIdx + 1} done. Responses so far:`, TrialRunner.responses.length);
       next();
     };
-    TrialRunner.load(trials, { keepResponses: true });
+    TrialRunner.load(ordBlocks[blockIdx], { keepResponses: true });
   }
 
   function runBlock1() {
-    Experiment.setBlock(["m1", "m2"]);
-    TrialRunner.onAllDone = () => {
-      console.log("Block 1 done. Responses:", TrialRunner.responses.length);
-      startBlock2();
-    };
-
-    TrialRunner.onTrialStart = (trial, index) => {
-      if (index === 0 && !tutorialDone) {
-        setTimeout(() => firstTrialTutorial(), 350);
-      }
-    };
-
-    TrialRunner.load(block1, { keepResponses: true });
+    TrialRunner.onTrialStart = null;
+    launchBlock(0, startBlock2);
   }
 
   function startBlock2() {
-    Introduction.start(blockTransitionPages(2, ["m3", "m4"]), () => {
-      runBlock(["m3", "m4"], block2, startBlock3);
-    }, { finalButton: "Begin Block 2" });
+    if (skipTransitions) {
+      launchBlock(1, startBlock3);
+    } else {
+      Introduction.start(
+        blockTransitionPages(2, ordMachines[1], blockElemIds(ordBlocks[1]), ordLabels[1]),
+        () => launchBlock(1, startBlock3),
+        { finalButton: "Begin Block 2" }
+      );
+    }
   }
 
   function startBlock3() {
-    Introduction.start(blockTransitionPages(3, ["m5", "m6"]), () => {
-      runBlock(["m5", "m6"], block3, endExperiment);
-    }, { finalButton: "Begin Block 3" });
+    const next = ordBlocks[3] ? startBlock4 : endExperiment;
+    if (skipTransitions) {
+      launchBlock(2, next);
+    } else {
+      Introduction.start(
+        blockTransitionPages(3, ordMachines[2], blockElemIds(ordBlocks[2]), ordLabels[2]),
+        () => launchBlock(2, next),
+        { finalButton: "Begin Block 3" }
+      );
+    }
+  }
+
+  function startBlock4() {
+    if (skipTransitions) {
+      launchBlock(3, endExperiment);
+    } else {
+      Introduction.start(
+        blockTransitionPages(4, ordMachines[3], blockElemIds(ordBlocks[3]), ordLabels[3]),
+        () => launchBlock(3, endExperiment),
+        { finalButton: "Begin Block 4" }
+      );
+    }
   }
 
   function endExperiment() {
-    console.log("Experiment complete.");
-    console.log("Response log:", JSON.stringify(TrialRunner.responses, null, 2));
-    Introduction.showEndScreen();
+    console.log("Experiment complete. Responses:", TrialRunner.responses.length);
+    completeSession(false);
+    const { correct, total } = PredictionScore.getStats();
+    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+    Introduction.showEndScreen(
+      `<h2>Thank You!</h2>
+       <p>You have completed the experiment. Your responses have been recorded.</p>
+       ${total > 0
+         ? `<p>You got <strong>${correct} out of ${total}</strong> predictions correct (${pct}%).</p>`
+         : ""}
+       <p>We greatly appreciate your time and effort. You may now close this window.</p>`
+    );
   }
 
-  Introduction.start(INTRO_PAGES, runBlock1);
+  const taskStructurePage = [
+    `<h2>Task Structure</h2>
+     <p>Great work! The real experiment is divided into
+     <strong>${resolved.machineNamesPerBlock.length} blocks</strong>. In each
+     block you will investigate a new set of <strong>3 machines</strong> and
+     a collection of elements.</p>
+     <p>Each block uses a set of elements with arbitrary letter labels.
+     These labels are <strong>purely arbitrary identifiers</strong> — the letters
+     carry no inherent meaning.</p>
+     <p>Each block contains a mix of observation, prediction, and memory-check
+     trials. The Knowledge Table resets at the start of each block.</p>
+     <p>Your prediction score is tracked and shown in the top-right corner of
+     the screen. Good luck, Investigator!</p>`,
+  ];
+
+  function startBlock1() {
+    if (skipTransitions) {
+      runBlock1();
+    } else {
+      Introduction.start(
+        blockTransitionPages(1, ordMachines[0], blockElemIds(ordBlocks[0]), ordLabels[0]),
+        runBlock1,
+        { finalButton: "Begin Block 1" }
+      );
+    }
+  }
+
+  function afterIntro() {
+    if (skipTutorial) {
+      Introduction.start(taskStructurePage, startBlock1, { finalButton: "Got it, let's start!" });
+    } else {
+      runTutorialBlock(() => {
+        Introduction.start(taskStructurePage, startBlock1, { finalButton: "Got it, let's start!" });
+      });
+    }
+  }
+
+  if (skipIntro) {
+    afterIntro();
+  } else {
+    Introduction.start(buildIntroPages(resolved), afterIntro, { finalButton: "Begin Tutorial" });
+  }
 })();

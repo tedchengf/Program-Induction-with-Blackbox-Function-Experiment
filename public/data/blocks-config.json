@@ -1,0 +1,196 @@
+{
+  "tutorial": {
+    "machines": [1, 2, 3],
+    "majorClasses": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
+    "trials": [
+      { "type": "observation",    "machineSlot": "m1", "elementRole": "eA", "state": "a" },
+      { "type": "observation",    "machineSlot": "m1", "elementRole": "eB", "state": "a" },
+      { "type": "observation",    "machineSlot": "m1", "elementRole": "eC", "state": "r" },
+      { "type": "observation",    "machineSlot": "m1", "elementRole": "eD", "state": "r" },
+      { "type": "observation",    "machineSlot": "m2", "elementRole": "eE", "state": "a" },
+      { "type": "observation",    "machineSlot": "m2", "elementRole": "eF", "state": "a" },
+      { "type": "observation",    "machineSlot": "m2", "elementRole": "eG", "state": "r" },
+      { "type": "observation",    "machineSlot": "m3", "elementRole": "eH", "state": "a" },
+      { "type": "observation",    "machineSlot": "m3", "elementRole": "eI", "state": "r" },
+      { "type": "observation",    "machineSlot": "m3", "elementRole": "eJ", "state": "r" },
+
+      { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eA", "state": "a",
+        "title": "Memory Check",
+        "preamble": "Memory checks ask you to recall what you already observed. You saw what this machine did — select the correct answer.",
+        "lockedAnswer": "accept", "isTutorial": true },
+
+      { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eB", "state": "a",
+        "title": "Memory Check (Demo)",
+        "preamble": "This shows what a failed memory check looks like. The tutorial does not count toward the two-failure limit.",
+        "lockedAnswer": "reject", "isTutorial": true },
+
+      { "type": "prediction",     "machineSlot": "m2", "elementRole": "eK", "state": "a" },
+      { "type": "prediction",     "machineSlot": "m3", "elementRole": "eL", "state": "r" }
+    ]
+  },
+
+  "machines": {
+    "groups": [
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9],
+      [10, 11, 12]
+    ]
+  },
+
+  "elements": {
+    "majorClasses": [
+      "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
+      "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"
+    ]
+  },
+
+  "debug": {
+    "skipIntro": false,
+    "skipTutorial": false,
+    "skipTransitions": false,
+    "attentionFailLimit": 1
+  },
+
+  "randomization": {
+    "randomizeGroupSelection": false,
+    "randomizeSlotOrderWithinGroup": false,
+    "randomizeElementMapping": true,
+    "randomizeMinorVariant": false
+  },
+
+  "blocks": [
+    {
+      "minorVariant": 1,
+      "condition": "PP",
+      "trials": [
+    	 { "type": "observation",    "machineSlot": "m1", "elementRole": "eA", "state": "a" },
+		 { "type": "observation",    "machineSlot": "m3", "elementRole": "eK", "state": "r" },
+		 { "type": "observation",    "machineSlot": "m3", "elementRole": "eD", "state": "a" },
+		 { "type": "observation",    "machineSlot": "m3", "elementRole": "eI", "state": "r" },
+		 { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eA", "state": "a" },
+		 { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eD", "state": "a" },
+		 { "type": "prediction",    "machineSlot": "m2", "elementRole": "eO", "state": "r" },
+
+		 { "type": "observation",    "machineSlot": "m2", "elementRole": "eM", "state": "a" },
+    	 { "type": "observation",    "machineSlot": "m1", "elementRole": "eE", "state": "r" },
+    	 { "type": "observation",    "machineSlot": "m1", "elementRole": "eF", "state": "r" },
+		 { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eO", "state": "r" },
+    	 { "type": "observation",    "machineSlot": "m1", "elementRole": "eC", "state": "a" },
+		 { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eC", "state": "a" },
+    	 { "type": "prediction",    "machineSlot": "m1", "elementRole": "eB", "state": "a" },
+
+    	 { "type": "observation",    "machineSlot": "m1", "elementRole": "eD", "state": "a" },
+		 { "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "a" },
+		 { "type": "observation",    "machineSlot": "m3", "elementRole": "eJ", "state": "r" },
+		 { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eM", "state": "a" },
+    	 { "type": "observation",    "machineSlot": "m2", "elementRole": "eN", "state": "a" },
+		 { "type": "observation",    "machineSlot": "m2", "elementRole": "eC", "state": "r" },
+    	 { "type": "observation",    "machineSlot": "m1", "elementRole": "eG", "state": "r" },
+    	 { "type": "observation",    "machineSlot": "m1", "elementRole": "eH", "state": "r" },
+		 { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eB", "state": "a" },
+		 { "type": "observation",    "machineSlot": "m3", "elementRole": "eA", "state": "a" },
+		 { "type": "prediction",     "machineSlot": "m3", "elementRole": "eC", "state": "a", "critical": true }
+      ]
+    },
+	{
+	"minorVariant": 2,
+	"condition": "PN",
+	"trials": [
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eA", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eD", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eM", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eA", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eO", "state": "r" },
+		{ "type": "prediction",    "machineSlot": "m2", "elementRole": "eN", "state": "a" },
+
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eA", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eN", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eB", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eF", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eE", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eC", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eF", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eG", "state": "r" },
+		{ "type": "prediction",    "machineSlot": "m3", "elementRole": "eH", "state": "r" },
+
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eD", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eC", "state": "r" },
+		{ "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eO", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eI", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eJ", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eB", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eK", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eD", "state": "r" },
+		{ "type": "prediction",     "machineSlot": "m1", "elementRole": "eC", "state": "r", "critical": true }
+	]
+	},
+	{
+	"minorVariant": 3,
+	"condition": "NP",
+	"trials": [
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eA", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eE", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eF", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eE","state": "a" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eM", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eN", "state": "r" },
+		{ "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eM", "state": "a" },
+		{ "type": "prediction",    "machineSlot": "m1", "elementRole": "eO", "state": "r" },
+
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eC", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eD", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eM", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eI", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eC", "state": "r" },
+		{ "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eD", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eG", "state": "a" },
+		{ "type": "prediction",    "machineSlot": "m3", "elementRole": "eH", "state": "a" },
+
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eJ", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eK", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eD", "state": "r" },
+		{ "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eD", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eA", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eB", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eA", "state": "r" },
+		{ "type": "prediction",     "machineSlot": "m2", "elementRole": "eC", "state": "a", "critical": true }
+	]
+	},
+	{
+	"minorVariant": 4,
+	"condition": "NN",
+	"trials": [
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eM", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eN", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eI", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eJ", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eA", "state": "r" },
+		{ "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eI", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eB", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "r" },
+		{ "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eJ", "state": "a" },
+		{ "type": "prediction",    "machineSlot": "m2", "elementRole": "eO", "state": "r" },
+
+		{ "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eN", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eC", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eK", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eA", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eF", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eF", "state": "a" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eG", "state": "a" },
+		{ "type": "prediction",    "machineSlot": "m1", "elementRole": "eE", "state": "a" },
+
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eH", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eB", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eC", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eD", "state": "r" },
+		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eD", "state": "r" },
+		{ "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eA", "state": "r" },
+		{ "type": "prediction",     "machineSlot": "m3", "elementRole": "eC", "state": "r", "critical": true }
+	]
+	}
+  ]
+}
