@@ -457,11 +457,13 @@ function getProlificParams() {
 
 async function initSession() {
   _sessionStart = Date.now();
+  const params = new URLSearchParams(window.location.search);
+  const forcedPid = params.get("pid") || null;  // ?pid=test-alice overrides server-generated uuid
   try {
     const res = await fetch("/api/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prolific: getProlificParams() }),
+      body: JSON.stringify({ prolific: getProlificParams(), forcedPid }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -469,7 +471,7 @@ async function initSession() {
     return { blockOrder: data.blockOrder ?? [0, 1, 2, 3] };
   } catch (err) {
     console.warn("Session init failed (offline?), using default order:", err);
-    _pid = "local-" + Math.random().toString(36).slice(2, 10);
+    _pid = forcedPid ?? "local-" + Math.random().toString(36).slice(2, 10);
     return { blockOrder: [0, 1, 2, 3] };
   }
 }

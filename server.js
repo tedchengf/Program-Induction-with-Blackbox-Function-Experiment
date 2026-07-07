@@ -117,7 +117,9 @@ app.post('/api/start', async (req, res) => {
     const chosen       = candidates[Math.floor(Math.random() * candidates.length)];
     const blockOrder   = chosen.block_order.split(',').map(Number);
 
-    const pid = randomUUID();
+    const pid = (req.body.forcedPid && String(req.body.forcedPid).startsWith("test-"))
+      ? String(req.body.forcedPid)
+      : randomUUID();
 
     await pool.query(
       `INSERT INTO subjects
