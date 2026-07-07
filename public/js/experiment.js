@@ -13,8 +13,7 @@ const ELEMENT_IDS = [
 
 /** PNG path for an element id, e.g. "A3" -> img/elem_A3.png, "OutT" -> img/elem_OutT.png */
 function elementSrc(id) {
-  const key = String(id).toUpperCase();
-  return `img/elem_${key}.png`;
+  return `img/elem_${id}.png`;
 }
 
 /* Shared display-label registry — mutated by Experiment.setElementDisplayLabels */
