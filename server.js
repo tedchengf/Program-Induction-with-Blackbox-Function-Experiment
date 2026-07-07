@@ -332,14 +332,20 @@ app.get('/api/debug/trials/:pid', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT block_num, block_condition, trial_num, trial_type, machine_slot,
-              element_role, display_label, correct_answer,
+              element_role, element_id, display_label, correct_answer,
               response_raw, response_coded, correct, critical, rt_ms
-       FROM trials WHERE pid = $1 ORDER BY block_num, trial_num`,
+       FROM trials WHERE pid = $1 ORDER BY id`,
       [req.params.pid]
     );
     const pid = req.params.pid;
     const extra = `<p>pid: <code>${pid}</code> — <a href="/api/debug/mappings/${pid}">view element mappings</a></p>`;
     res.send(htmlPage(`Trials — ${pid.slice(0,12)}`, NAV, extra + toTable(rows, {
+      block_num: v => v == null
+        ? `<span class="pill started">training</span>`
+        : String(v),
+      element_id: v => v == null
+        ? '<span class="null">—</span>'
+        : `${v} <span class="null">(elem_${v}.png)</span>`,
       rt_ms: v => v == null ? '<span class="null">—</span>' : `${(v/1000).toFixed(2)}s`,
     })));
   } catch (err) {
