@@ -2516,6 +2516,8 @@ const BlockConfig = (() => {
     }
   }
 
+  const PROLIFIC_COMPLETION_URL = "https://app.prolific.com/submissions/complete?cc=C1B7K9L2";
+
   function endExperiment() {
     console.log("Experiment complete. Responses:", TrialRunner.responses.length);
     completeSession(false);
@@ -2527,8 +2529,11 @@ const BlockConfig = (() => {
        ${total > 0
          ? `<p>You got <strong>${correct} out of ${total}</strong> predictions correct (${pct}%).</p>`
          : ""}
-       <p>We greatly appreciate your time and effort. You may now close this window.</p>`
+       <p>We greatly appreciate your time and effort.</p>
+       <p>You will be redirected to Prolific in a few seconds. If you are not redirected automatically,
+          <a href="${PROLIFIC_COMPLETION_URL}">click here</a>.</p>`
     );
+    setTimeout(() => { window.location.href = PROLIFIC_COMPLETION_URL; }, 4000);
   }
 
   const taskStructurePage = [
