@@ -239,35 +239,127 @@ app.post('/api/complete', async (req, res) => {
 
 /* ─── Debug endpoints ─────────────────────────────────────────────────────── */
 
+const DEBUG_CSS = `
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; background: #f5f5f5; }
+    h2   { margin: 0 0 12px; font-size: 1.1rem; color: #333; }
+    p    { margin: 0 0 16px; font-size: 0.85rem; color: #666; }
+    nav  { margin-bottom: 20px; font-size: 0.85rem; }
+    nav a { margin-right: 16px; color: #0066cc; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    table { border-collapse: collapse; background: #fff; font-size: 0.82rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,.12); width: 100%; }
+    th { background: #222; color: #fff; padding: 7px 10px; text-align: left;
+         font-weight: 600; white-space: nowrap; }
+    td { padding: 6px 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f0f7ff; }
+    .t  { color: #1a7a1a; font-weight: 600; }
+    .f  { color: #cc2200; }
+    .null { color: #bbb; font-style: italic; }
+    .pill { display:inline-block; padding:2px 7px; border-radius:99px; font-size:0.78rem; font-weight:600; }
+    .completed  { background:#d4edda; color:#155724; }
+    .started    { background:#fff3cd; color:#856404; }
+    .terminated { background:#f8d7da; color:#721c24; }
+  </style>`;
+
+function htmlPage(title, nav, body) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>${title}</title>${DEBUG_CSS}</head><body>
+    <nav>${nav}</nav><h2>${title}</h2>${body}</html>`;
+}
+
+function toTable(rows, fmt = {}) {
+  if (!rows.length) return '<p>No rows.</p>';
+  const cols = Object.keys(rows[0]);
+  const ths = cols.map(c => `<th>${c}</th>`).join('');
+  const trs = rows.map(row => {
+    const tds = cols.map(c => {
+      const v = row[c];
+      const render = fmt[c];
+      if (render) return `<td>${render(v, row)}</td>`;
+      if (v === null || v === undefined) return `<td class="null">—</td>`;
+      if (v === true  || v === 't') return `<td class="t">✓</td>`;
+      if (v === false || v === 'f') return `<td class="f">✗</td>`;
+      return `<td>${String(v)}</td>`;
+    }).join('');
+    return `<tr>${tds}</tr>`;
+  }).join('');
+  return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+}
+
+const NAV = `
+  <a href="/api/debug/sequences">Sequences</a>
+  <a href="/api/debug/subjects">Subjects</a>
+  <a href="/api/debug/trials/[pid]">Trials (replace [pid])</a>
+  <a href="/api/debug/mappings/[pid]">Mappings (replace [pid])</a>`;
+
 app.get('/api/debug/sequences', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM sequences ORDER BY sequence_id');
-    res.json(rows);
+    const table = toTable(rows, {
+      block_order: v => v.split(',').map(i => ['PP','PN','NP','NN'][i]).join(' → '),
+    });
+    res.send(htmlPage('Sequences', NAV, table));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).send(err.message);
   }
 });
 
 app.get('/api/debug/subjects', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT * FROM subjects ORDER BY started_at DESC LIMIT 20'
+      `SELECT pid, prolific_id, sequence_id, block_order, state, started_at,
+              total_time_ms, attn_fail_count,
+              pred_correct || '/' || pred_total AS pred,
+              critical_pred_correct || '/' || critical_pred_total AS critical_pred
+       FROM subjects ORDER BY started_at DESC LIMIT 50`
     );
-    res.json(rows);
+    const table = toTable(rows, {
+      pid:        v => `<a href="/api/debug/trials/${v}">${v.slice(0,8)}…</a>`,
+      block_order: v => v.split(',').map(i => ['PP','PN','NP','NN'][i]).join(' → '),
+      state:      v => `<span class="pill ${v}">${v}</span>`,
+      started_at: v => new Date(v).toLocaleString(),
+      total_time_ms: v => v == null ? '<span class="null">—</span>' : `${Math.round(v/1000)}s`,
+    });
+    res.send(htmlPage('Subjects (last 50)', NAV, table));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).send(err.message);
   }
 });
 
 app.get('/api/debug/trials/:pid', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT * FROM trials WHERE pid = $1 ORDER BY block_num, trial_num',
+      `SELECT block_num, block_condition, trial_num, trial_type, machine_slot,
+              element_role, display_label, correct_answer,
+              response_raw, response_coded, correct, critical, rt_ms
+       FROM trials WHERE pid = $1 ORDER BY block_num, trial_num`,
       [req.params.pid]
     );
-    res.json(rows);
+    const pid = req.params.pid;
+    const extra = `<p>pid: <code>${pid}</code> — <a href="/api/debug/mappings/${pid}">view element mappings</a></p>`;
+    res.send(htmlPage(`Trials — ${pid.slice(0,12)}`, NAV, extra + toTable(rows, {
+      rt_ms: v => v == null ? '<span class="null">—</span>' : `${(v/1000).toFixed(2)}s`,
+    })));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).send(err.message);
+  }
+});
+
+app.get('/api/debug/mappings/:pid', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT block_num, block_condition, element_role, element_id, display_label,
+              major_class, minor_variant
+       FROM element_mappings WHERE pid = $1 ORDER BY block_num, element_role`,
+      [req.params.pid]
+    );
+    const pid = req.params.pid;
+    const extra = `<p>pid: <code>${pid}</code></p>`;
+    res.send(htmlPage(`Element Mappings — ${pid.slice(0,12)}`, NAV, extra + toTable(rows)));
+  } catch (err) {
+    res.status(500).send(err.message);
   }
 });
 
