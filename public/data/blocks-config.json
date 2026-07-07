@@ -168,7 +168,7 @@
 		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eI", "state": "a" },
 		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eJ", "state": "a" },
 		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eA", "state": "r" },
-		{ "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eI", "state": "a" },
+		{ "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eM", "state": "a" },
 		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eB", "state": "r" },
 		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "r" },
 		{ "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eJ", "state": "a" },
