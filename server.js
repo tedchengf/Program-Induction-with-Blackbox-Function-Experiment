@@ -74,6 +74,8 @@ async function initDB() {
     );
   `);
 
+  await pool.query(`ALTER TABLE trials ADD COLUMN IF NOT EXISTS hover_log TEXT`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS element_mappings (
       pid             TEXT,
@@ -150,13 +152,14 @@ app.post('/api/trial', async (req, res) => {
       `INSERT INTO trials
          (pid, block_num, block_condition, trial_num, trial_type, machine_slot,
           element_role, element_id, display_label, correct_answer,
-          response_raw, response_coded, correct, critical, rt_ms, first_response_ms)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+          response_raw, response_coded, correct, critical, rt_ms, first_response_ms, hover_log)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [
         t.pid, t.blockNum, t.blockCondition, t.trialNum, t.trialType, t.machineSlot,
         t.elementRole, t.elementId, t.displayLabel, t.correctAnswer,
         t.responseRaw, t.responseCoded ?? null, t.correct ?? null,
         t.critical ?? false, t.rtMs ?? null, t.firstResponseMs ?? null,
+        t.hoverLog ?? null,
       ]
     );
 
@@ -333,7 +336,7 @@ app.get('/api/debug/trials/:pid', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT block_num, block_condition, trial_num, trial_type, machine_slot,
               element_role, element_id, display_label, correct_answer,
-              response_raw, response_coded, correct, critical, rt_ms
+              response_raw, response_coded, correct, critical, rt_ms, hover_log
        FROM trials WHERE pid = $1 ORDER BY id`,
       [req.params.pid]
     );
@@ -346,7 +349,11 @@ app.get('/api/debug/trials/:pid', async (req, res) => {
       element_id: v => v == null
         ? '<span class="null">—</span>'
         : `${v} <span class="null">(elem_${v}.png)</span>`,
-      rt_ms: v => v == null ? '<span class="null">—</span>' : `${(v/1000).toFixed(2)}s`,
+      rt_ms:     v => v == null ? '<span class="null">—</span>' : `${(v/1000).toFixed(2)}s`,
+      hover_log: v => {
+        if (v == null) return '<span class="null">—</span>';
+        try { return JSON.parse(v).join(' → '); } catch { return v; }
+      },
     })));
   } catch (err) {
     res.status(500).send(err.message);

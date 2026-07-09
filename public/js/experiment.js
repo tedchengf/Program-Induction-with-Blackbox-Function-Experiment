@@ -56,13 +56,42 @@ const ElementGrid = (() => {
     { max: Infinity, thumb: 22, label: 0.62, rowGap: 3, innerGap: 5, col: "62px" },
   ];
 
+  const cellCounts = {};
+
+  function computeCellHeightBudget() {
+    const el = document.getElementById("element-grid");
+    if (!el) return null;
+    const h = el.getBoundingClientRect().height;
+    if (h < 30) return null;
+    return (h - 16) / 3; // 3 rows, 2 × 8px row-gap
+  }
+
   function applyDensity(box, count) {
     const tier = DENSITY_TIERS.find((t) => count <= t.max);
-    box.style.setProperty("--element-thumb-size", `${tier.thumb}px`);
-    box.style.setProperty("--element-label-size", `${tier.label}rem`);
-    box.style.setProperty("--element-cell-row-gap", `${tier.rowGap}px`);
+    let thumb  = tier.thumb;
+    let label  = tier.label;
+    let rowGap = tier.rowGap;
+
+    // In single-column mode, shrink thumbnails so all items fit without scrolling
+    if (count > 0 && tier.col === "100%") {
+      const budget = computeCellHeightBudget();
+      if (budget) {
+        const available = budget - 42 - 12; // approx title height + box padding
+        const needed    = count * (thumb + rowGap);
+        if (needed > available && available > 0) {
+          const scale = available / needed;
+          thumb  = Math.max(18, Math.floor(thumb  * scale));
+          label  = Math.max(0.55, +(label  * scale).toFixed(2));
+          rowGap = Math.max(2,    Math.floor(rowGap * scale));
+        }
+      }
+    }
+
+    box.style.setProperty("--element-thumb-size",    `${thumb}px`);
+    box.style.setProperty("--element-label-size",    `${label}rem`);
+    box.style.setProperty("--element-cell-row-gap",  `${rowGap}px`);
     box.style.setProperty("--element-row-inner-gap", `${tier.innerGap}px`);
-    box.style.setProperty("--element-col-width", tier.col);
+    box.style.setProperty("--element-col-width",     tier.col);
   }
 
   function setCellTitle(row, col, text) {
@@ -101,6 +130,7 @@ const ElementGrid = (() => {
       stack.appendChild(rowEl);
     });
     applyDensity(box, slice.length);
+    cellCounts[`${row},${col}`] = slice.length;
     box.classList.toggle("has-content", slice.length > 0);
   }
 
@@ -125,6 +155,7 @@ const ElementGrid = (() => {
     if (stack) stack.innerHTML = "";
     box?.classList.remove("has-content");
     if (box) applyDensity(box, 0);
+    cellCounts[`${row},${col}`] = 0;
   }
 
   function clearAll() {
@@ -134,6 +165,20 @@ const ElementGrid = (() => {
       box.classList.remove("has-content");
       applyDensity(box, 0);
     });
+    Object.keys(cellCounts).forEach((k) => { cellCounts[k] = 0; });
+  }
+
+  // Reapply density on panel/window resize so items never overflow
+  if (typeof ResizeObserver !== "undefined") {
+    const _gridEl = document.getElementById("element-grid");
+    if (_gridEl) {
+      new ResizeObserver(() => {
+        Object.entries(grid).forEach(([key, box]) => {
+          const count = cellCounts[key] ?? 0;
+          if (count > 0) applyDensity(box, count);
+        });
+      }).observe(_gridEl);
+    }
   }
 
   return {
@@ -554,6 +599,7 @@ async function saveTrial(entry) {
         critical:       meta.critical       ?? false,
         rtMs:           Math.round(entry.continueRT ?? entry.nextRT ?? 0),
         firstResponseMs: entry.firstScaleTime != null ? Math.round(entry.firstScaleTime) : null,
+        hoverLog:        entry.hoverLog?.length ? JSON.stringify(entry.hoverLog) : null,
       }),
     });
   } catch (err) {
@@ -1099,6 +1145,7 @@ const TrialRunner = (() => {
         states: s.states,
         elems: s.elems,
       })),
+      hoverLog: _getHoverLog(),
       _meta: trial._meta ?? null,
     };
 
@@ -1209,7 +1256,15 @@ const TrialRunner = (() => {
     const trial = queue[currentIndex];
     if (!trial) return;
 
+    // Clear obs highlight from previous trial
+    document.querySelectorAll(".element-slot-row.elem-obs-highlight")
+      .forEach((el) => el.classList.remove("elem-obs-highlight"));
+    document.querySelectorAll(".element-box.elem-obs-highlight-box")
+      .forEach((el) => el.classList.remove("elem-obs-highlight-box"));
+    clearTimeout(_obsHighlightTimer);
+
     trialOnsetTime = now();
+    _resetHoverLog();
 
     if (trial.wipeTable) Experiment.wipeLeftTable();
     Experiment.clearCanvas();
@@ -1226,6 +1281,10 @@ const TrialRunner = (() => {
       nextBtn.textContent = isLast ? "Finish" : "Next Trial";
       (trial.specs ?? []).forEach((spec) => Experiment.renderTrial(spec));
       nextBtn.disabled = false;
+
+      if (trial._trialType === "observation" && trial._meta?.elemId) {
+        autoHighlightObsElement(trial._meta.elemId);
+      }
     }
 
     const machineCanvas = document.getElementById("machine-canvas");
@@ -1256,6 +1315,7 @@ const TrialRunner = (() => {
           elems: s.elems,
         })),
         nextRT: rt,
+        hoverLog: _getHoverLog(),
         _meta: trial._meta ?? null,
       };
       responses.push(obsEntry);
@@ -1359,6 +1419,20 @@ const PredictionScore = (() => {
 })();
 
 /* ════════════════════════════════════════════════════════
+   Hover log — ordered sequence of element IDs hovered per trial
+   ════════════════════════════════════════════════════════ */
+let _hoverLog = [];
+function _resetHoverLog() { _hoverLog = []; }
+function _getHoverLog()   { return [..._hoverLog]; }
+function _pushHover(elemId) {
+  if (!elemId) return;
+  const id = String(elemId).toUpperCase();
+  // Deduplicate consecutive entries (mouseover fires on child elements too)
+  if (_hoverLog.length > 0 && _hoverLog[_hoverLog.length - 1] === id) return;
+  _hoverLog.push(id);
+}
+
+/* ════════════════════════════════════════════════════════
    Cross-highlighting: hovering an element on the canvas
    highlights every matching slot-row in the left table.
    ════════════════════════════════════════════════════════ */
@@ -1425,6 +1499,7 @@ const PredictionScore = (() => {
     if (el) {
       clearHighlights();
       highlightElement(el.dataset.elemId);
+      _pushHover(el.dataset.elemId);
     }
   });
 
@@ -1443,6 +1518,7 @@ const PredictionScore = (() => {
       if (el) {
         clearHighlights();
         highlightElement(el.dataset.elemId);
+        _pushHover(el.dataset.elemId);
       }
     });
     grid.addEventListener("mouseout", (e) => {
@@ -1454,6 +1530,38 @@ const PredictionScore = (() => {
     });
   }
 })();
+
+/* ════════════════════════════════════════════════════════
+   Observation auto-highlight — briefly pulses the newly-
+   observed element row and its parent cell, fading in 2 s.
+   ════════════════════════════════════════════════════════ */
+let _obsHighlightTimer = null;
+
+function autoHighlightObsElement(elemId) {
+  if (!elemId) return;
+  const id = String(elemId).toUpperCase();
+
+  document.querySelectorAll(".element-slot-row.elem-obs-highlight")
+    .forEach((el) => el.classList.remove("elem-obs-highlight"));
+  document.querySelectorAll(".element-box.elem-obs-highlight-box")
+    .forEach((el) => el.classList.remove("elem-obs-highlight-box"));
+  clearTimeout(_obsHighlightTimer);
+
+  // rAF so the class removal above has settled before we re-add
+  requestAnimationFrame(() => {
+    document.querySelectorAll(`.element-slot-row[data-elem-id="${id}"]`).forEach((el) => {
+      el.classList.add("elem-obs-highlight");
+      const box = el.closest(".element-box");
+      if (box) box.classList.add("elem-obs-highlight-box");
+    });
+    _obsHighlightTimer = setTimeout(() => {
+      document.querySelectorAll(".element-slot-row.elem-obs-highlight")
+        .forEach((el) => el.classList.remove("elem-obs-highlight"));
+      document.querySelectorAll(".element-box.elem-obs-highlight-box")
+        .forEach((el) => el.classList.remove("elem-obs-highlight-box"));
+    }, 2100);
+  });
+}
 
 /* ═══════════════════════════════════════════════════════════════
    PART 1 — Introduction  (multi-page walkthrough overlay)

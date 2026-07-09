@@ -179,9 +179,9 @@ body::after {
 #element-panel {
   flex: 0 0 30%;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   padding: 12px;
+  overflow: hidden;
   background:
     var(--grid-rot-a),
     var(--grid-rot-b),
@@ -363,7 +363,8 @@ body::after {
   grid-template-rows: repeat(3, 1fr);
   gap: 8px;
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Empty cells: opaque cool grey (inactive) */
@@ -1173,4 +1174,37 @@ body::after {
   border-top: 10px solid transparent;
   border-bottom: 10px solid transparent;
   border-left: 10px solid #fff;
+}
+
+/* ── Observation auto-highlight (fades over 2 s) ──────── */
+@keyframes obs-row-orange {
+  0%, 8% { background: rgba(255, 102, 0, 0.42); box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.52); }
+  100%   { background: transparent; box-shadow: none; }
+}
+@keyframes obs-row-blue {
+  0%, 8% { background: rgba(0, 204, 255, 0.38); box-shadow: 0 0 0 2px rgba(0, 204, 255, 0.48); }
+  100%   { background: transparent; box-shadow: none; }
+}
+@keyframes obs-box-orange {
+  from { box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.58), 0 8px 22px rgba(255, 102, 0, 0.28); }
+  to   { box-shadow: 0 8px 22px rgba(255, 102, 0, 0.14); }
+}
+@keyframes obs-box-blue {
+  from { box-shadow: 0 0 0 3px rgba(0, 204, 255, 0.52), 0 8px 22px rgba(0, 204, 255, 0.24); }
+  to   { box-shadow: 0 8px 22px rgba(0, 204, 255, 0.12); }
+}
+
+.element-box[data-col="0"] .element-slot-row.elem-obs-highlight {
+  animation: obs-row-orange 2s ease-out forwards;
+  border-radius: 6px;
+}
+.element-box[data-col="1"] .element-slot-row.elem-obs-highlight {
+  animation: obs-row-blue 2s ease-out forwards;
+  border-radius: 6px;
+}
+.element-box[data-col="0"].has-content.elem-obs-highlight-box {
+  animation: obs-box-orange 2s ease-out forwards;
+}
+.element-box[data-col="1"].has-content.elem-obs-highlight-box {
+  animation: obs-box-blue 2s ease-out forwards;
 }
