@@ -2348,35 +2348,49 @@ const BlockConfig = (() => {
     const attnTrials = tutorial.trials.filter(t => t._trialType === "attention_check");
     const predTrials = tutorial.trials.filter(t => t._trialType === "prediction");
 
+    const obsIntroPage = [
+      `<h2>Observation Trials</h2>
+       <p>Your team's field agents have been running experiments — inserting different
+       elements into each machine and recording what happens. The results they've collected
+       are what you'll be reviewing in <strong>Observation trials</strong>.</p>
+       <p>In each observation trial, you'll see a machine being tested with an element and
+       the outcome: either the machine
+       <span class="intro-highlight hl-orange">activates</span> and produces an Energy
+       element, or it stays <span class="intro-highlight hl-blue">idle</span>. The result
+       is automatically logged in the Knowledge Table on the left.</p>
+       <p>Your job: <strong>pay close attention</strong>. The observations are your only
+       source of evidence — the more carefully you track each result, the better prepared
+       you'll be for what comes next.</p>`,
+    ];
+
     const attnIntroPage = [
       `<h2>Memory Checks</h2>
-       <p>Good work — you've just observed several machine–element combinations. Take a
-       look at the Knowledge Table on the left: it now shows a record of everything
-       you've seen so far.</p>
-       <p>Next, you'll encounter your first <strong>Memory Check</strong>. A memory check
-       shows you a machine–element pair you've <em>already observed</em> and asks you to
-       recall the outcome. Two buttons appear:</p>
+       <p>Check the Knowledge Table on the left — it now contains a record of everything
+       you've observed. <strong>Memory Checks</strong> are here to make sure you were
+       paying close attention during those observations.</p>
+       <p>In a Memory Check, you're shown a machine–element pair you've
+       <em>already observed</em> and asked to recall the outcome. Two buttons appear:</p>
        ${PageHelpers.binaryPreview}
        <p>Click <span class="intro-highlight hl-orange">Active</span> if the machine
        activated with that element, or
        <span class="intro-highlight hl-blue">Idle</span> if it stayed idle. Then press
        <strong>Continue</strong>.</p>
        <p>One of the memory checks in this practice is set up to show you what an incorrect
-       answer looks like — don't worry, it won't count against you.</p>
+       answer looks like — it won't count against you here.</p>
        <div class="intro-callout callout-gray">
          In the real experiment you may fail at most <strong>two</strong> memory checks
-         before the session ends early — so pay close attention to what you observe.
+         before the session ends early.
        </div>`,
     ];
 
     const predIntroPage = [
       `<h2>Prediction Trials</h2>
-       <p>Memory checks done — great work. Now for the main event:
-       <strong>Predictions</strong>.</p>
-       <p>In a prediction trial, you're shown a machine and an element that <em>hasn't been
-       tested yet</em>. The machine starts in its idle state. Your task: use what you've
-       observed so far to judge how likely it is that this machine will activate with this
-       new element.</p>
+       <p>Memory checks done — great. Now for the main task:
+       <strong>Prediction trials</strong>.</p>
+       <p>In a prediction trial, you're shown a machine and an element that
+       <em>hasn't been tested yet</em>. The machine starts in its idle state. Your task:
+       use what you've observed to judge how likely it is that this machine will activate
+       with this new element.</p>
        <p>Respond using the <strong>4-point scale</strong>:</p>
        ${PageHelpers.scalePreview}
        <ul>
@@ -2387,32 +2401,58 @@ const BlockConfig = (() => {
          <li>The middle options express varying degrees of uncertainty.</li>
        </ul>
        <p>After selecting a response, press <strong>Continue</strong> — the actual outcome
-       is then revealed and added to the Knowledge Table. Use your observations to make
-       your best informed guess.</p>`,
+       is revealed and added to the Knowledge Table.</p>`,
+    ];
+
+    const goalPage = [
+      `<h2>The Goal</h2>
+       <p>You've now seen all three trial types. Before the real experiment begins, here's
+       the key insight your team needs from you.</p>
+       <p>Elements don't activate machines at random. Each element belongs to a broad
+       <strong>category</strong> — and each machine consistently responds the same way to
+       all elements from the same category. Some categories activate a given machine;
+       others don't.</p>
+       <p>Your goal isn't just to memorize individual results. It's to figure out
+       <strong>which categories of elements each machine responds to</strong>. Once you
+       identify the underlying pattern, you can predict outcomes for elements you've never
+       seen before — not just guess.</p>
+       <p>In each block, the same category rule governs all three machines. Use your
+       observations strategically: the more you understand the pattern, the more accurate
+       your predictions will be.</p>
+       <div class="intro-callout callout-gray">
+         Your prediction accuracy is tracked throughout the experiment. Try to do as well
+         as you can.
+       </div>`,
     ];
 
     TrialRunner.onTrialStart = null;
 
     function runPredictions() {
       TrialRunner.onAllDone = () => {
-        Experiment.wipeLeftTable();
-        PredictionScore.reset();
-        onDone();
+        Introduction.start(goalPage, () => {
+          Experiment.wipeLeftTable();
+          PredictionScore.reset();
+          onDone();
+        }, { finalButton: "Start the Experiment" });
       };
       TrialRunner.load(predTrials, { keepResponses: true });
     }
 
     function runAttnChecks() {
       TrialRunner.onAllDone = () => {
-        Introduction.start(predIntroPage, runPredictions, { finalButton: "Try a Prediction" });
+        Introduction.start(predIntroPage, runPredictions, { finalButton: "Start Predictions" });
       };
       TrialRunner.load(attnTrials, { keepResponses: true });
     }
 
-    TrialRunner.onAllDone = () => {
-      Introduction.start(attnIntroPage, runAttnChecks, { finalButton: "Start Memory Checks" });
-    };
-    TrialRunner.load(obsTrials, { keepResponses: false });
+    function runObservations() {
+      TrialRunner.onAllDone = () => {
+        Introduction.start(attnIntroPage, runAttnChecks, { finalButton: "Start Memory Checks" });
+      };
+      TrialRunner.load(obsTrials, { keepResponses: false });
+    }
+
+    Introduction.start(obsIntroPage, runObservations, { finalButton: "Start Observations" });
   }
 
   function launchBlock(blockIdx, next) {
