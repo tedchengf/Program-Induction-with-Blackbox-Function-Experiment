@@ -20,6 +20,11 @@ html, body {
   -webkit-backdrop-filter: blur(18px);
   transition: opacity 0.4s;
 }
+#intro-overlay.canvas-mode {
+  background: rgba(10, 15, 30, 0.52);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
 #intro-overlay.hidden {
   opacity: 0;
   pointer-events: none;

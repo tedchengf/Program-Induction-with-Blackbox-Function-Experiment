@@ -1160,8 +1160,8 @@ const TrialRunner = (() => {
 
         if (trial._isTutorial) {
           window.alert(
-            "Incorrect memory check — this is what a failure looks like.\n\n" +
-            "In the real experiment you can fail at most two memory checks before the experiment ends.\n\n" +
+            "Incorrect attention check — this is what a failure looks like.\n\n" +
+            "In the real experiment you can fail at most two attention checks before the experiment ends.\n\n" +
             "(The tutorial does not count towards this limit.)"
           );
           if (currentIndex >= queue.length - 1) { onAllDone?.(); return; }
@@ -1178,7 +1178,7 @@ const TrialRunner = (() => {
           Introduction.showEndScreen(
             `<h2>Experiment Ended</h2>
              <p>Unfortunately, the experiment cannot continue because too many
-             memory-check questions were answered incorrectly.</p>
+             attention check questions were answered incorrectly.</p>
              <p>Thank you for your time.</p>`
           );
           return;
@@ -1186,7 +1186,7 @@ const TrialRunner = (() => {
 
         // First failure: warn and force a retry (do not reveal the correct answer).
         window.alert(
-          "Memory check incorrect. Please try again.\n\n(If you miss more than one memory check, the experiment will end.)"
+          "Attention check incorrect. Please try again.\n\n(If you miss more than one attention check, the experiment will end.)"
         );
         currentResponse = null;
         resetBinary();
@@ -1590,6 +1590,7 @@ const Introduction = (() => {
       render();
     } else {
       overlay.classList.add("hidden");
+      overlay.classList.remove("canvas-mode");
       if (typeof onDone === "function") onDone();
     }
   }
@@ -1599,7 +1600,7 @@ const Introduction = (() => {
   /**
    * @param {string[]} pageArray
    * @param {Function} callback
-   * @param {{ finalButton?: string }} [opts]
+   * @param {{ finalButton?: string, canvasMode?: boolean }} [opts]
    */
   function start(pageArray, callback, opts = {}) {
     pages = pageArray;
@@ -1607,6 +1608,7 @@ const Introduction = (() => {
     onDone = callback;
     finalBtnText = opts.finalButton ?? "Begin Experiment";
     btn.style.display = "";
+    overlay.classList.toggle("canvas-mode", !!opts.canvasMode);
     overlay.classList.remove("hidden");
     render();
   }
@@ -1697,7 +1699,7 @@ const TrialGenerators = (() => {
       _lockedAnswer: opts.lockedAnswer ?? null,
       _isTutorial:  opts.isTutorial  ?? false,
       type: "question",
-      title: opts.title ?? "Memory Check",
+      title: opts.title ?? "Attention Check",
       preamble: opts.preamble ?? "You have seen this before. Did this machine activate or stay idle with this element?",
       question: {
         machine,
@@ -2364,28 +2366,28 @@ const BlockConfig = (() => {
     ];
 
     const attnIntroPage = [
-      `<h2>Memory Checks</h2>
+      `<h2>Attention Checks</h2>
        <p>Check the Knowledge Table on the left — it now contains a record of everything
-       you've observed. <strong>Memory Checks</strong> are here to make sure you were
+       you've observed. <strong>Attention Checks</strong> are here to verify that you were
        paying close attention during those observations.</p>
-       <p>In a Memory Check, you're shown a machine–element pair you've
-       <em>already observed</em> and asked to recall the outcome. Two buttons appear:</p>
+       <p>In an Attention Check, you're shown a machine–element pair you've
+       <em>already observed</em> and asked to report the outcome. Two buttons appear:</p>
        ${PageHelpers.binaryPreview}
        <p>Click <span class="intro-highlight hl-orange">Active</span> if the machine
        activated with that element, or
        <span class="intro-highlight hl-blue">Idle</span> if it stayed idle. Then press
        <strong>Continue</strong>.</p>
-       <p>One of the memory checks in this practice is set up to show you what an incorrect
-       answer looks like — it won't count against you here.</p>
+       <p>One of the attention checks in this practice will only let you select the wrong
+       answer — to show you what a failure looks like. It won't count against you here.</p>
        <div class="intro-callout callout-gray">
-         In the real experiment you may fail at most <strong>two</strong> memory checks
+         In the real experiment you may fail at most <strong>two</strong> attention checks
          before the session ends early.
        </div>`,
     ];
 
     const predIntroPage = [
       `<h2>Prediction Trials</h2>
-       <p>Memory checks done — great. Now for the main task:
+       <p>Attention checks done — great. Now for the main task:
        <strong>Prediction trials</strong>.</p>
        <p>In a prediction trial, you're shown a machine and an element that
        <em>hasn't been tested yet</em>. The machine starts in its idle state. Your task:
@@ -2412,7 +2414,7 @@ const BlockConfig = (() => {
        <strong>category</strong> — and each machine consistently responds the same way to
        all elements from the same category. Some categories activate a given machine;
        others don't.</p>
-       <p>Your goal isn't just to memorize individual results. It's to figure out
+       <p>Your goal isn't just to track individual results. It's to figure out
        <strong>which categories of elements each machine responds to</strong>. Once you
        identify the underlying pattern, you can predict outcomes for elements you've never
        seen before — not just guess.</p>
@@ -2425,34 +2427,76 @@ const BlockConfig = (() => {
        </div>`,
     ];
 
-    TrialRunner.onTrialStart = null;
-
     function runPredictions() {
+      TrialRunner.onTrialStart = null;
       TrialRunner.onAllDone = () => {
         Introduction.start(goalPage, () => {
           Experiment.wipeLeftTable();
           PredictionScore.reset();
           onDone();
-        }, { finalButton: "Start the Experiment" });
+        }, { finalButton: "Start the Experiment", canvasMode: true });
       };
       TrialRunner.load(predTrials, { keepResponses: true });
     }
 
     function runAttnChecks() {
+      let attnCount = 0;
+      TrialRunner.onTrialStart = () => {
+        attnCount++;
+        if (attnCount === 2) {
+          setTimeout(() => {
+            Tutorial.start([{
+              target: "#binary-response-container",
+              position: "top",
+              padding: 12,
+              text: `Only <strong>Idle</strong> is selectable here — this is set up to
+                     show you what a failed attention check looks like. In the real
+                     experiment you choose freely, but too many failures ends the
+                     session early.`,
+            }]);
+          }, 350);
+        }
+      };
       TrialRunner.onAllDone = () => {
-        Introduction.start(predIntroPage, runPredictions, { finalButton: "Start Predictions" });
+        Introduction.start(predIntroPage, runPredictions,
+          { finalButton: "Start Predictions", canvasMode: true });
       };
       TrialRunner.load(attnTrials, { keepResponses: true });
     }
 
     function runObservations() {
+      TrialRunner.onTrialStart = (trial, index) => {
+        if (index === 0) {
+          setTimeout(() => {
+            Tutorial.start([{
+              target: () => document.querySelector(
+                '#machine-canvas .machine-element-layer[data-elem-id]'),
+              position: "left",
+              padding: 20,
+              text: `Hover over any element — on the canvas or in the caption below —
+                     to cross-highlight its entries in the
+                     <strong>Knowledge Table</strong> on the left.`,
+              onEnter() {
+                const el = document.querySelector(
+                  '#machine-canvas .machine-element-layer[data-elem-id]');
+                if (el) Tutorial.forceHighlight(el.dataset.elemId);
+              },
+              onLeave() { Tutorial.clearForcedHighlights(); },
+              action: "button",
+              buttonText: "Got it",
+            }]);
+          }, 350);
+        }
+      };
       TrialRunner.onAllDone = () => {
-        Introduction.start(attnIntroPage, runAttnChecks, { finalButton: "Start Memory Checks" });
+        Introduction.start(attnIntroPage, runAttnChecks,
+          { finalButton: "Start Attention Checks", canvasMode: true });
       };
       TrialRunner.load(obsTrials, { keepResponses: false });
     }
 
-    Introduction.start(obsIntroPage, runObservations, { finalButton: "Start Observations" });
+    Introduction.start(obsIntroPage, runObservations,
+      { finalButton: "Start Observations", canvasMode: true });
   }
 
   function launchBlock(blockIdx, next) {
@@ -2540,10 +2584,10 @@ const BlockConfig = (() => {
      elements. The Knowledge Table resets at the start of every block — you start fresh
      with each new group of machines.</p>
      <p>The same three trial types apply throughout: <strong>observations</strong>,
-     <strong>memory checks</strong>, and <strong>predictions</strong>. Your prediction
+     <strong>attention checks</strong>, and <strong>predictions</strong>. Your prediction
      score is tracked in the top-right corner — see how well you do!</p>
      <div class="intro-callout callout-gray">
-       Reminder: you may fail at most <strong>two</strong> memory checks in total before
+       Reminder: you may fail at most <strong>two</strong> attention checks in total before
        the experiment ends early.
      </div>
      <p>The first block begins on the next screen. Good luck, Investigator!</p>`,

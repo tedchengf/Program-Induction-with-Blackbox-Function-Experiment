@@ -15,13 +15,13 @@
       { "type": "observation",    "machineSlot": "m3", "elementRole": "eJ", "state": "r" },
 
       { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eA", "state": "a",
-        "title": "Memory Check",
-        "preamble": "Memory checks ask you to recall what you already observed. You saw what this machine did — select the correct answer.",
+        "title": "Attention Check",
+        "preamble": "Attention checks ask you to report what you already observed. You saw what this machine did — select the correct answer.",
         "lockedAnswer": "accept", "isTutorial": true },
 
       { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eB", "state": "a",
-        "title": "Memory Check (Demo)",
-        "preamble": "This shows what a failed memory check looks like. The tutorial does not count toward the two-failure limit.",
+        "title": "Attention Check (Demo)",
+        "preamble": "This shows what a failed attention check looks like. The tutorial does not count toward the two-failure limit.",
         "lockedAnswer": "reject", "isTutorial": true },
 
       { "type": "prediction",     "machineSlot": "m2", "elementRole": "eK", "state": "a" },
