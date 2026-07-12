@@ -1789,149 +1789,40 @@ const PageHelpers = (() => {
  * @param {string[][]} resolved.machineNamesPerBlock — e.g. [["m1","m2","m3"], ...]
  */
 function buildIntroPages(resolved) {
-  const { ENERGY_ELEM_ID, elemImg, canvasPreview, scalePreview, binaryPreview } = PageHelpers;
+  const { ENERGY_ELEM_ID, elemImg, canvasPreview } = PageHelpers;
   const EI = (sz) => elemImg(ENERGY_ELEM_ID, sz);
 
   const ids = Object.values(resolved.roleToElementIdPerBlock[0]);
-  const [exA, exB, exC, exD] = ids;
-  const [m1, m2] = resolved.machineNamesPerBlock[0];
-
-  const numBlocks = resolved.machineNamesPerBlock.length;
-
-  // Random 6-element gallery for "The Elements" slide — no labels (arbitrary symbols).
-  const shuffled = [...ids].sort(() => Math.random() - 0.5);
-  const sample6Gallery = shuffled.slice(0, 6).map((id) =>
-    `<div class="intro-elem-item">${elemImg(id, 52)}</div>`
-  ).join("");
-
+  const [exA, exB] = ids;
+  const [m1] = resolved.machineNamesPerBlock[0];
   const m1Name = Experiment.machineDisplayName(m1);
-  const m2Name = Experiment.machineDisplayName(m2);
 
   return [
     `<h2>Welcome, Investigator</h2>
-     <p>Your team has recovered a trove of <strong>alien artifacts</strong>
-     from a recently discovered site. Among them are <strong>twelve machines</strong>
-     and a collection of <strong>elements</strong> — small objects marked with unique symbols.</p>
-     <p>Early tests show that when the <em>right</em> element is placed inside a
-     machine, it springs to life — heating up and emitting a brilliant
-     <span class="intro-highlight hl-orange">orange glow</span>. When activated,
-     the machine <strong>produces a brand-new element</strong> the team has
-     nicknamed the ${EI(22)} <strong>Energy element</strong>, because it can
-     be used as an extraordinarily powerful energy source.</p>
-     <p>When the wrong element is used, the machine stays
-     <span class="intro-highlight hl-blue">cold and idle</span>
-     and produces nothing.</p>
-     <p>Your mission: help the team <strong>figure out which elements activate
-     each machine</strong> so we can reliably produce Energy elements.
-     A single Energy element can keep an outpost running for days.</p>`,
+     <p>Your team has recovered a trove of <strong>alien artifacts</strong> — twelve
+     machines and a collection of small objects called <strong>elements</strong>,
+     each bearing a unique symbol.</p>
+     <p>Early tests show that the machines are selective. When the <em>right</em>
+     element is placed inside, a machine springs to life —
+     <span class="intro-highlight hl-orange">glowing orange</span> and producing a
+     powerful ${EI(20)} <strong>Energy element</strong>.
+     When the <em>wrong</em> element is used, it stays
+     <span class="intro-highlight hl-blue">cold and idle</span>, producing nothing.</p>
+     <p>Your mission: <strong>figure out which elements activate each machine</strong>
+     so the team can reliably produce Energy elements.</p>`,
 
-    `<h2>The Elements</h2>
-     <p>The elements are small objects, each bearing a unique symbol. Here is a
-     random selection to give you a sense of what they look like:</p>
-     <div class="intro-elem-gallery" style="grid-template-columns:repeat(6,1fr);">
-       ${sample6Gallery}
-     </div>
-     <p>There is one additional element the machines can <em>create</em>:</p>
-     <div class="intro-elem-gallery" style="margin-bottom:8px;">
-       <div class="intro-elem-item">${EI(52)}<span>Energy</span></div>
-     </div>
-     <p>The ${EI(20)} <strong>Energy element</strong> is produced by an activated
-     machine. It is the valuable resource your team is after.</p>`,
-
-    `<h2>The Machines</h2>
-     <p>The twelve machines are labelled <strong>Machine 1</strong> through
-     <strong>Machine 12</strong>. Each machine has two possible states when an
-     element is placed inside:</p>
-     <ul>
-       <li><span class="intro-highlight hl-orange">Active</span> — the machine
-       heats up and <strong>produces</strong> an ${EI(18)} Energy element.</li>
-       <li><span class="intro-highlight hl-blue">Idle</span> — the machine stays
-       cold. <strong>No element is produced.</strong></li>
-     </ul>
-     <p>By default, every machine is in its
-     <span class="intro-highlight hl-blue">idle state</span>.
-     Only the correct element will activate it. The machines behave
-     deterministically — if a machine activates (or stays idle) with an element,
-     it will always do so.</p>`,
-
-    `<h2>Active — Machine Activated</h2>
-     <p>When the correct element is placed, the machine <strong>activates</strong>:
-     it glows orange and the output module on the right receives the ${EI(22)}
-     <strong>Energy element</strong>:</p>
+    `<h2>Active vs. Idle</h2>
+     <p>When the right element is placed, the machine <strong>activates</strong> and
+     produces an ${EI(18)} Energy element:</p>
      ${canvasPreview(m1, "a", { elem: exA, token: ENERGY_ELEM_ID })}
      <p style="text-align:center;opacity:0.65;font-size:0.9rem;">
-       ${m1Name} activates and produces an Energy element.</p>`,
-
-    `<h2>Idle — Machine Inactive</h2>
-     <p>When the wrong element is placed, the machine <strong>stays idle</strong>:
-     it remains blue and the output module is empty — <strong>no Energy element
-     is produced</strong>:</p>
+       ${m1Name} activates — Energy element produced.</p>
+     <p>When the wrong element is used, the machine <strong>stays idle</strong>:</p>
      ${canvasPreview(m1, "r", { elem: exB })}
      <p style="text-align:center;opacity:0.65;font-size:0.9rem;">
-       ${m1Name} stays idle — no Energy element.</p>`,
-
-    `<h2>The Interface</h2>
-     <h3>Right — the Canvas</h3>
-     <p>The large area on the right shows the machine currently being tested,
-     along with the input element and the output module. A caption beneath
-     explains what happened.</p>
-     <h3>Left — the Knowledge Table</h3>
-     <p>The panel on the left keeps a running record of what you've observed.
-     Each block features three machines, so the table has
-     <strong>three rows</strong> (one per machine) and <strong>two columns</strong>:</p>
-     <ul>
-       <li><span class="intro-highlight hl-orange">Active</span> — elements that
-       activated this machine (producing an Energy element).</li>
-       <li><span class="intro-highlight hl-blue">Idle</span> — elements that left
-       this machine idle.</li>
-     </ul>
-     <p>The table updates automatically and persists throughout the block.
-     You can also <strong>hover over any element on the canvas or in the
-     caption</strong> to highlight where it appears in the table.</p>`,
-
-    `<h2>Observation Trials</h2>
-     <p>In an observation trial you <strong>watch</strong> a machine process an
-     element. The result appears on the canvas and is recorded in the knowledge
-     table. Press <strong>Next Trial</strong> to advance.</p>
-     ${canvasPreview(m2, "a", { elem: exC, token: ENERGY_ELEM_ID })}
-     <p style="text-align:center;opacity:0.65;font-size:0.9rem;">
-       Example: ${m2Name} activates and produces an Energy element.</p>
-     ${canvasPreview(m2, "r", { elem: exD })}
-     <p style="text-align:center;opacity:0.65;font-size:0.9rem;">
-       Example: ${m2Name} stays idle — no Energy element.</p>`,
-
-    `<h2>Prediction Trials</h2>
-     <p>In a prediction trial the machine appears in its
-     <span class="intro-highlight hl-blue">idle state</span> with an
-     element placed on it. You are asked:</p>
-     ${canvasPreview(m1, "r", { elem: exA })}
-     <div class="intro-callout callout-gray" style="text-align:center;">
-       <em>"Will this machine activate with this element?"</em>
-     </div>
-     <p>Use the <strong>4-point scale</strong> to indicate your confidence:</p>
-     ${scalePreview}
-     <ul>
-       <li><span class="intro-highlight hl-orange">Definitely Active</span> (left)
-       — you are very confident the machine will activate and produce Energy.</li>
-       <li><span class="intro-highlight hl-blue">Definitely Idle</span> (right)
-       — you are very confident the machine will stay idle.</li>
-       <li>The middle points mean you are uncertain.</li>
-     </ul>
-     <p>Once you respond, the <strong>Continue</strong> button lights up.
-     Press it to reveal the actual outcome.</p>`,
-
-    `<h2>Memory Checks</h2>
-     <p>Occasionally you will be asked about a machine–element combination you
-     have <strong>already seen</strong>. Two buttons appear instead of the scale:</p>
-     ${canvasPreview(m1, "r", { elem: exA })}
-     ${binaryPreview}
-     <p>Click the button matching what you observed, then press
-     <strong>Continue</strong> to move on.</p>
-     <div class="intro-callout callout-gray">
-       Pay attention — answering these correctly is important.
-       You may fail at most <strong>two</strong> memory checks before the
-       experiment ends.
-     </div>`,
+       ${m1Name} stays idle — nothing produced.</p>
+     <p>You're about to do a short <strong>practice trial</strong> to get familiar
+     with the interface. The real experiment begins right after.</p>`,
   ];
 }
 
@@ -2645,19 +2536,33 @@ const BlockConfig = (() => {
     setTimeout(() => { window.location.href = PROLIFIC_COMPLETION_URL; }, 4000);
   }
 
+  const { scalePreview, binaryPreview } = PageHelpers;
+  const numBlocks = resolved.machineNamesPerBlock.length;
+
   const taskStructurePage = [
-    `<h2>Task Structure</h2>
-     <p>Great work! The real experiment is divided into
-     <strong>${resolved.machineNamesPerBlock.length} blocks</strong>. In each
-     block you will investigate a new set of <strong>3 machines</strong> and
-     a collection of elements.</p>
-     <p>Each block uses a set of elements with arbitrary letter labels.
-     These labels are <strong>purely arbitrary identifiers</strong> — the letters
-     carry no inherent meaning.</p>
-     <p>Each block contains a mix of observation, prediction, and memory-check
-     trials. The Knowledge Table resets at the start of each block.</p>
-     <p>Your prediction score is tracked and shown in the top-right corner of
-     the screen. Good luck, Investigator!</p>`,
+    `<h2>Now the Real Experiment</h2>
+     <p>Good work — you've just seen how everything works. Here's what to expect
+     in the actual experiment:</p>
+     <p>The experiment has <strong>${numBlocks} blocks</strong>. Each block
+     introduces a new set of <strong>3 machines</strong> and a fresh collection
+     of elements with arbitrary letter labels. The Knowledge Table resets at the
+     start of every block.</p>
+     <p>Each block contains three types of trials:</p>
+     <ul>
+       <li><strong>Observation</strong> — watch a machine process an element.
+       The result is added to the Knowledge Table automatically.</li>
+       <li><strong>Memory Check</strong> — recall a result you already observed.
+       Use the two buttons to respond:
+       ${binaryPreview}
+       You may fail at most <strong>two</strong> memory checks — after that,
+       the experiment ends early.</li>
+       <li><strong>Prediction</strong> — judge whether a machine will activate
+       with an element you haven't seen yet. Use the 4-point scale:
+       ${scalePreview}
+       The actual outcome is revealed after you respond.</li>
+     </ul>
+     <p>Your prediction score is tracked in the top-right corner of the screen.
+     Good luck, Investigator!</p>`,
   ];
 
   function startBlock1() {
@@ -2674,10 +2579,10 @@ const BlockConfig = (() => {
 
   function afterIntro() {
     if (skipTutorial) {
-      Introduction.start(taskStructurePage, startBlock1, { finalButton: "Got it, let's start!" });
+      Introduction.start(taskStructurePage, startBlock1, { finalButton: "Begin Experiment" });
     } else {
       runTutorialBlock(() => {
-        Introduction.start(taskStructurePage, startBlock1, { finalButton: "Got it, let's start!" });
+        Introduction.start(taskStructurePage, startBlock1, { finalButton: "Begin Experiment" });
       });
     }
   }
@@ -2685,6 +2590,6 @@ const BlockConfig = (() => {
   if (skipIntro) {
     afterIntro();
   } else {
-    Introduction.start(buildIntroPages(resolved), afterIntro, { finalButton: "Begin Tutorial" });
+    Introduction.start(buildIntroPages(resolved), afterIntro, { finalButton: "Start Practice Trial" });
   }
 })();
