@@ -1793,36 +1793,69 @@ function buildIntroPages(resolved) {
   const EI = (sz) => elemImg(ENERGY_ELEM_ID, sz);
 
   const ids = Object.values(resolved.roleToElementIdPerBlock[0]);
-  const [exA, exB] = ids;
+  const [exA] = ids;
   const [m1] = resolved.machineNamesPerBlock[0];
-  const m1Name = Experiment.machineDisplayName(m1);
 
   return [
+    // Page 1: Background story
     `<h2>Welcome, Investigator</h2>
-     <p>Your team has recovered a trove of <strong>alien artifacts</strong> — twelve
-     machines and a collection of small objects called <strong>elements</strong>,
-     each bearing a unique symbol.</p>
-     <p>Early tests show that the machines are selective. When the <em>right</em>
-     element is placed inside, a machine springs to life —
-     <span class="intro-highlight hl-orange">glowing orange</span> and producing a
-     powerful ${EI(20)} <strong>Energy element</strong>.
-     When the <em>wrong</em> element is used, it stays
-     <span class="intro-highlight hl-blue">cold and idle</span>, producing nothing.</p>
-     <p>Your mission: <strong>figure out which elements activate each machine</strong>
-     so the team can reliably produce Energy elements.</p>`,
+     <p>Your team has recently uncovered a cache of <strong>alien artifacts</strong> at a
+     remote excavation site. Among them are <strong>twelve machines</strong> of unknown
+     origin — and a large collection of small objects your team calls
+     <strong>elements</strong>, each bearing a unique geometric symbol.</p>
+     <p>Early testing revealed something remarkable. When the <em>right</em> element is
+     placed inside a machine, it springs to life —
+     <span class="intro-highlight hl-orange">glowing orange</span> and producing a powerful
+     new artifact your team has dubbed the ${EI(20)} <strong>Energy element</strong>.
+     A single Energy element can keep an entire outpost running for days.</p>
+     <p>When the <em>wrong</em> element is used, the machine stays
+     <span class="intro-highlight hl-blue">cold and idle</span> — no glow, no output,
+     nothing produced. The machines behave consistently: once a machine responds a
+     particular way to an element, it <em>always</em> will.</p>
+     <p>Your mission: <strong>figure out which elements activate each machine</strong> —
+     and which don't.</p>`,
 
-    `<h2>Active vs. Idle</h2>
-     <p>When the right element is placed, the machine <strong>activates</strong> and
-     produces an ${EI(18)} Energy element:</p>
+    // Page 2: Role and assignment
+    `<h2>Your Assignment</h2>
+     <p>The team has identified a fresh batch of <strong>previously untested
+     elements</strong>. You've been brought in as a specialist investigator to run
+     systematic experiments.</p>
+     <p>The investigation is organized into <strong>blocks</strong>. In each block you
+     work with a new set of <strong>3 machines</strong> and a fresh collection of labeled
+     elements. Your job in each block:</p>
+     <ul>
+       <li><strong>Observe</strong> how the machines respond to different elements, and
+       build up a record of what you've learned.</li>
+       <li><strong>Recall</strong> past results accurately when asked — the team needs
+       reliable records.</li>
+       <li><strong>Predict</strong> — based on what you've observed — how each machine
+       will behave with elements not yet tested. The true outcome is always revealed
+       after you respond.</li>
+     </ul>
+     <p>You'll start with a short <strong>practice block</strong> to learn the interface
+     before the real investigation begins.</p>`,
+
+    // Page 3: Interface layout
+    `<h2>The Interface</h2>
+     <p>The interface has two panels. Here's a quick orientation before your first trial.</p>
+     <h3>Right — the Canvas</h3>
+     <p>The main area on the right shows the current trial: the machine on the left, the
+     element placed on top of it, and the output module on the right (which receives the
+     ${EI(18)} Energy element when the machine activates). A caption beneath describes
+     the outcome.</p>
      ${canvasPreview(m1, "a", { elem: exA, token: ENERGY_ELEM_ID })}
-     <p style="text-align:center;opacity:0.65;font-size:0.9rem;">
-       ${m1Name} activates — Energy element produced.</p>
-     <p>When the wrong element is used, the machine <strong>stays idle</strong>:</p>
-     ${canvasPreview(m1, "r", { elem: exB })}
-     <p style="text-align:center;opacity:0.65;font-size:0.9rem;">
-       ${m1Name} stays idle — nothing produced.</p>
-     <p>You're about to do a short <strong>practice trial</strong> to get familiar
-     with the interface. The real experiment begins right after.</p>`,
+     <h3>Left — the Knowledge Table</h3>
+     <p>The panel on the left records everything you've observed in the current block.
+     It has <strong>3 rows</strong> (one per machine) and <strong>2 columns</strong>:</p>
+     <ul>
+       <li><span class="intro-highlight hl-orange">Active</span> — elements that activated
+       this machine.</li>
+       <li><span class="intro-highlight hl-blue">Idle</span> — elements this machine
+       stayed idle for.</li>
+     </ul>
+     <p>Entries are added automatically as you observe. You can hover over any element —
+     on the canvas, in the caption, or in the Knowledge Table itself — to cross-highlight
+     all its appearances.</p>`,
   ];
 }
 
@@ -2299,11 +2332,9 @@ const BlockConfig = (() => {
     return [...seen];
   }
 
-  let tutorialDone = false;
-
   function runTutorialBlock(onDone) {
     if (!tutorial) { onDone(); return; }
-    // Set tutorial display labels (letter only, e.g. "A", "B")
+
     const tutLabels = {};
     Object.entries(tutorial.roleToElem).forEach(([role, elemId]) => {
       tutLabels[String(elemId).toUpperCase()] = role.slice(1);
@@ -2313,153 +2344,75 @@ const BlockConfig = (() => {
     Experiment.wipeLeftTable();
     PredictionScore.reset();
 
-    let tutAttnCount  = 0;
-    let tutPredShown  = false;
+    const obsTrials  = tutorial.trials.filter(t => t._trialType === "observation");
+    const attnTrials = tutorial.trials.filter(t => t._trialType === "attention_check");
+    const predTrials = tutorial.trials.filter(t => t._trialType === "prediction");
 
-    function correctAttnTutorial() {
-      Tutorial.start([
-        {
-          target: () => document.querySelector('#machine-canvas .machine-element-layer[data-elem-id]'),
-          position: "left",
-          padding: 20,
-          text: `<strong>Memory check!</strong> You've seen what this machine did with this element —
-                 the matching entry is highlighted in the Knowledge Table.`,
-          onEnter() {
-            const el = document.querySelector('#machine-canvas .machine-element-layer[data-elem-id]');
-            if (el) Tutorial.forceHighlight(el.dataset.elemId);
-          },
-          onLeave() { Tutorial.clearForcedHighlights(); },
-        },
-        {
-          target: "#binary-response-container",
-          position: "top",
-          padding: 12,
-          text: `This machine <strong>activated</strong> with this element. Select
-                 <strong>Active</strong> to confirm what you observed.`,
-        },
-      ]);
-    }
-
-    function wrongAttnTutorial() {
-      Tutorial.start([
-        {
-          target: "#binary-response-container",
-          position: "top",
-          padding: 12,
-          text: `Another memory check — but only <strong>Idle</strong> is selectable here.
-                 This lets you see what happens when a memory check is answered incorrectly.`,
-          onEnter() {
-            const el = document.querySelector('#machine-canvas .machine-element-layer[data-elem-id]');
-            if (el) Tutorial.forceHighlight(el.dataset.elemId);
-          },
-          onLeave() { Tutorial.clearForcedHighlights(); },
-        },
-      ]);
-    }
-
-    function predTutorial() {
-      Tutorial.start([
-        {
-          target: "#response-scale-container",
-          position: "top",
-          padding: 10,
-          text: `Now try a <strong>prediction</strong>! For now, just take a random guess —
-                 as the experiment continues you will gather more evidence to make
-                 more informed judgements.`,
-          action: "button",
-          buttonText: "Got it",
-        },
-      ]);
-    }
-
-    TrialRunner.onTrialStart = (trial, index) => {
-      if (index === 0 && !tutorialDone) {
-        setTimeout(() => firstTrialTutorial(), 350);
-      } else if (trial._isTutorial && trial._trialType === "attention_check") {
-        tutAttnCount++;
-        setTimeout(() => (tutAttnCount === 1 ? correctAttnTutorial() : wrongAttnTutorial()), 350);
-      } else if (trial._trialType === "prediction" && !tutPredShown) {
-        tutPredShown = true;
-        setTimeout(() => predTutorial(), 350);
-      }
-    };
-
-    TrialRunner.onAllDone = () => {
-      Experiment.wipeLeftTable();
-      PredictionScore.reset();
-      onDone();
-    };
-    TrialRunner.load(tutorial.trials, { keepResponses: false });
-  }
-
-  function firstTrialTutorial(callback) {
-    const nextBtn = document.getElementById("next-trial-btn");
-    nextBtn.disabled = true;
-
-    const elemTarget = () =>
-      document.querySelector('#machine-canvas .machine-element-layer[data-elem-id]');
-
-    const tutorialSteps = [
-      {
-        target: "#machine-canvas",
-        position: "left",
-        padding: 6,
-        text: `This is the <strong>Canvas</strong>. It shows the machine on the
-               left, the element being tested on top of it, and the output module
-               on the right. Look — the machine just produced an
-               <img class="intro-icon" src="img/elem_OutT.png"
-               style="height:20px;width:20px;"> <strong>Energy element</strong>!`,
-        action: "button",
-      },
-      {
-        target: elemTarget,
-        position: "left",
-        padding: 20,
-        text: `That element is now recorded in the <strong>Knowledge Table</strong>
-               on the left. You can also hover over elements on the canvas at any
-               time to highlight their entries in the table.`,
-        onEnter() {
-          const el = document.querySelector('#machine-canvas .machine-element-layer[data-elem-id]');
-          if (el) Tutorial.forceHighlight(el.dataset.elemId);
-        },
-        onLeave() { Tutorial.clearForcedHighlights(); },
-      },
-      {
-        target: "#element-grid",
-        position: "right",
-        padding: 10,
-        text: `See the highlighted cells? The <strong>Knowledge Table</strong>
-               tracks every element each machine has accepted or rejected.
-               Hovering over any element on the canvas — or in the caption below
-               it — will light up the matching entries here.`,
-        action: "button",
-        onEnter() {
-          const el = document.querySelector(
-            '#machine-canvas .machine-element-layer[data-elem-id]');
-          if (el) {
-            Tutorial.forceHighlight(el.dataset.elemId);
-          }
-        },
-        onLeave() {
-          Tutorial.clearForcedHighlights();
-        },
-      },
-      {
-        target: "#next-trial-btn",
-        position: "top",
-        padding: 10,
-        text: `When you're ready, press <strong>Next Trial</strong> to continue.
-               The Knowledge Table will keep accumulating across trials.`,
-        action: "button",
-        buttonText: "OK, let's go!",
-      },
+    const attnIntroPage = [
+      `<h2>Memory Checks</h2>
+       <p>Good work — you've just observed several machine–element combinations. Take a
+       look at the Knowledge Table on the left: it now shows a record of everything
+       you've seen so far.</p>
+       <p>Next, you'll encounter your first <strong>Memory Check</strong>. A memory check
+       shows you a machine–element pair you've <em>already observed</em> and asks you to
+       recall the outcome. Two buttons appear:</p>
+       ${PageHelpers.binaryPreview}
+       <p>Click <span class="intro-highlight hl-orange">Active</span> if the machine
+       activated with that element, or
+       <span class="intro-highlight hl-blue">Idle</span> if it stayed idle. Then press
+       <strong>Continue</strong>.</p>
+       <p>One of the memory checks in this practice is set up to show you what an incorrect
+       answer looks like — don't worry, it won't count against you.</p>
+       <div class="intro-callout callout-gray">
+         In the real experiment you may fail at most <strong>two</strong> memory checks
+         before the session ends early — so pay close attention to what you observe.
+       </div>`,
     ];
 
-    Tutorial.start(tutorialSteps, () => {
-      nextBtn.disabled = false;
-      tutorialDone = true;
-      if (callback) callback();
-    });
+    const predIntroPage = [
+      `<h2>Prediction Trials</h2>
+       <p>Memory checks done — great work. Now for the main event:
+       <strong>Predictions</strong>.</p>
+       <p>In a prediction trial, you're shown a machine and an element that <em>hasn't been
+       tested yet</em>. The machine starts in its idle state. Your task: use what you've
+       observed so far to judge how likely it is that this machine will activate with this
+       new element.</p>
+       <p>Respond using the <strong>4-point scale</strong>:</p>
+       ${PageHelpers.scalePreview}
+       <ul>
+         <li><span class="intro-highlight hl-orange">Definitely Active</span> — you are
+         confident this machine will activate.</li>
+         <li><span class="intro-highlight hl-blue">Definitely Idle</span> — you are
+         confident it will stay idle.</li>
+         <li>The middle options express varying degrees of uncertainty.</li>
+       </ul>
+       <p>After selecting a response, press <strong>Continue</strong> — the actual outcome
+       is then revealed and added to the Knowledge Table. Use your observations to make
+       your best informed guess.</p>`,
+    ];
+
+    TrialRunner.onTrialStart = null;
+
+    function runPredictions() {
+      TrialRunner.onAllDone = () => {
+        Experiment.wipeLeftTable();
+        PredictionScore.reset();
+        onDone();
+      };
+      TrialRunner.load(predTrials, { keepResponses: true });
+    }
+
+    function runAttnChecks() {
+      TrialRunner.onAllDone = () => {
+        Introduction.start(predIntroPage, runPredictions, { finalButton: "Try a Prediction" });
+      };
+      TrialRunner.load(attnTrials, { keepResponses: true });
+    }
+
+    TrialRunner.onAllDone = () => {
+      Introduction.start(attnIntroPage, runAttnChecks, { finalButton: "Start Memory Checks" });
+    };
+    TrialRunner.load(obsTrials, { keepResponses: false });
   }
 
   function launchBlock(blockIdx, next) {
@@ -2536,33 +2489,24 @@ const BlockConfig = (() => {
     setTimeout(() => { window.location.href = PROLIFIC_COMPLETION_URL; }, 4000);
   }
 
-  const { scalePreview, binaryPreview } = PageHelpers;
   const numBlocks = resolved.machineNamesPerBlock.length;
 
   const taskStructurePage = [
-    `<h2>Now the Real Experiment</h2>
-     <p>Good work — you've just seen how everything works. Here's what to expect
-     in the actual experiment:</p>
-     <p>The experiment has <strong>${numBlocks} blocks</strong>. Each block
-     introduces a new set of <strong>3 machines</strong> and a fresh collection
-     of elements with arbitrary letter labels. The Knowledge Table resets at the
-     start of every block.</p>
-     <p>Each block contains three types of trials:</p>
-     <ul>
-       <li><strong>Observation</strong> — watch a machine process an element.
-       The result is added to the Knowledge Table automatically.</li>
-       <li><strong>Memory Check</strong> — recall a result you already observed.
-       Use the two buttons to respond:
-       ${binaryPreview}
-       You may fail at most <strong>two</strong> memory checks — after that,
-       the experiment ends early.</li>
-       <li><strong>Prediction</strong> — judge whether a machine will activate
-       with an element you haven't seen yet. Use the 4-point scale:
-       ${scalePreview}
-       The actual outcome is revealed after you respond.</li>
-     </ul>
-     <p>Your prediction score is tracked in the top-right corner of the screen.
-     Good luck, Investigator!</p>`,
+    `<h2>The Real Experiment</h2>
+     <p>Excellent — you've completed the practice block and know exactly how the task
+     works.</p>
+     <p>The real experiment consists of <strong>${numBlocks} blocks</strong>. Each block
+     introduces a new set of <strong>3 machines</strong> and a fresh collection of labeled
+     elements. The Knowledge Table resets at the start of every block — you start fresh
+     with each new group of machines.</p>
+     <p>The same three trial types apply throughout: <strong>observations</strong>,
+     <strong>memory checks</strong>, and <strong>predictions</strong>. Your prediction
+     score is tracked in the top-right corner — see how well you do!</p>
+     <div class="intro-callout callout-gray">
+       Reminder: you may fail at most <strong>two</strong> memory checks in total before
+       the experiment ends early.
+     </div>
+     <p>The first block begins on the next screen. Good luck, Investigator!</p>`,
   ];
 
   function startBlock1() {
