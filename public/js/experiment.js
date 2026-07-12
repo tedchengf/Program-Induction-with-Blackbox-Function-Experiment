@@ -2427,6 +2427,8 @@ const BlockConfig = (() => {
        </div>`,
     ];
 
+    const EI = PageHelpers.elemImg("OutT", 18);
+
     function runPredictions() {
       TrialRunner.onTrialStart = null;
       TrialRunner.onAllDone = () => {
@@ -2441,19 +2443,56 @@ const BlockConfig = (() => {
 
     function runAttnChecks() {
       let attnCount = 0;
-      TrialRunner.onTrialStart = () => {
+      TrialRunner.onTrialStart = (trial) => {
         attnCount++;
-        if (attnCount === 2) {
+        const elemId = trial._meta?.elemId;
+        const correctLabel = trial._meta?.correctAnswer === "a" ? "Active" : "Idle";
+
+        if (attnCount === 1) {
           setTimeout(() => {
-            Tutorial.start([{
-              target: "#binary-response-container",
-              position: "top",
-              padding: 12,
-              text: `Only <strong>Idle</strong> is selectable here — this is set up to
-                     show you what a failed attention check looks like. In the real
-                     experiment you choose freely, but too many failures ends the
-                     session early.`,
-            }]);
+            Tutorial.start([
+              {
+                target: () => document.querySelector(
+                  '#machine-canvas .machine-element-layer[data-elem-id]'),
+                position: "left",
+                padding: 20,
+                text: `You've seen this machine with this element before. Notice it's
+                       highlighted in the <strong>Knowledge Table</strong> on the left —
+                       check the result there.`,
+                onEnter() { if (elemId) Tutorial.forceHighlight(elemId); },
+                onLeave() { Tutorial.clearForcedHighlights(); },
+              },
+              {
+                target: "#binary-response-container",
+                position: "top",
+                padding: 12,
+                text: `Now select <strong>${correctLabel}</strong> to confirm what you
+                       observed, then press Continue.`,
+              },
+            ]);
+          }, 350);
+        } else if (attnCount === 2) {
+          setTimeout(() => {
+            Tutorial.start([
+              {
+                target: () => document.querySelector(
+                  '#machine-canvas .machine-element-layer[data-elem-id]'),
+                position: "left",
+                padding: 20,
+                text: `Another attention check. Check the <strong>Knowledge Table</strong> —
+                       the result for this element is highlighted.`,
+                onEnter() { if (elemId) Tutorial.forceHighlight(elemId); },
+                onLeave() { Tutorial.clearForcedHighlights(); },
+              },
+              {
+                target: "#binary-response-container",
+                position: "top",
+                padding: 12,
+                text: `Only <strong>Idle</strong> is selectable here. This is set up to
+                       show you what a failed attention check looks like — select it and
+                       press Continue to see what happens.`,
+              },
+            ]);
           }, 350);
         }
       };
@@ -2467,6 +2506,66 @@ const BlockConfig = (() => {
     function runObservations() {
       TrialRunner.onTrialStart = (trial, index) => {
         if (index === 0) {
+          // Trial 1: active machine — highlight canvas then table
+          setTimeout(() => {
+            Tutorial.start([
+              {
+                target: "#machine-canvas",
+                position: "left",
+                padding: 6,
+                text: `This machine just <strong style="color:#e65c00">activated</strong>!
+                       It's glowing orange and produced an ${EI} Energy element.
+                       This is what happens when the right element is used.`,
+                buttonText: "Got it",
+              },
+              {
+                target: "#element-grid",
+                position: "right",
+                padding: 10,
+                text: `The result is automatically logged in the
+                       <strong>Knowledge Table</strong>. This element now appears under
+                       the machine's <strong style="color:#e65c00">Active</strong> column.`,
+                buttonText: "Got it",
+                onEnter() {
+                  const el = document.querySelector(
+                    '#machine-canvas .machine-element-layer[data-elem-id]');
+                  if (el) Tutorial.forceHighlight(el.dataset.elemId);
+                },
+                onLeave() { Tutorial.clearForcedHighlights(); },
+              },
+            ]);
+          }, 350);
+        } else if (index === 1) {
+          // Trial 2: idle machine — highlight canvas then table
+          setTimeout(() => {
+            Tutorial.start([
+              {
+                target: "#machine-canvas",
+                position: "left",
+                padding: 6,
+                text: `This time the machine stays
+                       <strong style="color:#0077bb">idle</strong> — no glow, no Energy
+                       element. When the wrong element is used, nothing is produced.`,
+                buttonText: "Got it",
+              },
+              {
+                target: "#element-grid",
+                position: "right",
+                padding: 10,
+                text: `Idle results are logged too. This element now appears under the
+                       machine's <strong style="color:#0077bb">Idle</strong> column.`,
+                buttonText: "Got it",
+                onEnter() {
+                  const el = document.querySelector(
+                    '#machine-canvas .machine-element-layer[data-elem-id]');
+                  if (el) Tutorial.forceHighlight(el.dataset.elemId);
+                },
+                onLeave() { Tutorial.clearForcedHighlights(); },
+              },
+            ]);
+          }, 350);
+        } else if (index === 2) {
+          // Trial 3: hover cross-highlight tip
           setTimeout(() => {
             Tutorial.start([{
               target: () => document.querySelector(
@@ -2475,15 +2574,14 @@ const BlockConfig = (() => {
               padding: 20,
               text: `Hover over any element — on the canvas or in the caption below —
                      to cross-highlight its entries in the
-                     <strong>Knowledge Table</strong> on the left.`,
+                     <strong>Knowledge Table</strong>.`,
+              buttonText: "Got it",
               onEnter() {
                 const el = document.querySelector(
                   '#machine-canvas .machine-element-layer[data-elem-id]');
                 if (el) Tutorial.forceHighlight(el.dataset.elemId);
               },
               onLeave() { Tutorial.clearForcedHighlights(); },
-              action: "button",
-              buttonText: "Got it",
             }]);
           }, 350);
         }

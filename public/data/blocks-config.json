@@ -4,8 +4,8 @@
     "majorClasses": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
     "trials": [
       { "type": "observation",    "machineSlot": "m1", "elementRole": "eA", "state": "a" },
-      { "type": "observation",    "machineSlot": "m1", "elementRole": "eB", "state": "a" },
       { "type": "observation",    "machineSlot": "m1", "elementRole": "eC", "state": "r" },
+      { "type": "observation",    "machineSlot": "m1", "elementRole": "eB", "state": "a" },
       { "type": "observation",    "machineSlot": "m1", "elementRole": "eD", "state": "r" },
       { "type": "observation",    "machineSlot": "m2", "elementRole": "eE", "state": "a" },
       { "type": "observation",    "machineSlot": "m2", "elementRole": "eF", "state": "a" },
@@ -24,8 +24,8 @@
         "preamble": "This shows what a failed attention check looks like. The tutorial does not count toward the two-failure limit.",
         "lockedAnswer": "reject", "isTutorial": true },
 
-      { "type": "prediction",     "machineSlot": "m2", "elementRole": "eK", "state": "a" },
-      { "type": "prediction",     "machineSlot": "m3", "elementRole": "eL", "state": "r" }
+      { "type": "prediction",     "machineSlot": "m2", "elementRole": "eA", "state": "a" },
+      { "type": "prediction",     "machineSlot": "m3", "elementRole": "eC", "state": "r" }
     ]
   },
 
