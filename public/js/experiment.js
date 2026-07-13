@@ -2367,18 +2367,15 @@ const BlockConfig = (() => {
 
     const attnIntroPage = [
       `<h2>Attention Checks</h2>
-       <p>Check the Knowledge Table on the left — it now contains a record of everything
-       you've observed. <strong>Attention Checks</strong> are here to verify that you were
-       paying close attention during those observations.</p>
-       <p>In an Attention Check, you're shown a machine–element pair you've
-       <em>already observed</em> and asked to report the outcome. Two buttons appear:</p>
+       <p><strong>Attention Checks</strong> verify that you were paying close attention to
+       the observations. The machine appears <strong>greyed out</strong> — use the
+       Knowledge Table on the left to recall what you observed.</p>
        ${PageHelpers.binaryPreview}
        <p>Click <span class="intro-highlight hl-orange">Active</span> if the machine
        activated with that element, or
-       <span class="intro-highlight hl-blue">Idle</span> if it stayed idle. Then press
-       <strong>Continue</strong>.</p>
-       <p>One of the attention checks in this practice will only let you select the wrong
-       answer — to show you what a failure looks like. It won't count against you here.</p>
+       <span class="intro-highlight hl-blue">Idle</span> if it stayed idle.</p>
+       <p>One of the attention checks here will only let you select the wrong answer — to
+       show you what a failure looks like. It won't count against you in practice.</p>
        <div class="intro-callout callout-gray">
          In the real experiment you may fail at most <strong>two</strong> attention checks
          before the session ends early.
@@ -2387,23 +2384,17 @@ const BlockConfig = (() => {
 
     const predIntroPage = [
       `<h2>Prediction Trials</h2>
-       <p>Attention checks done — great. Now for the main task:
-       <strong>Prediction trials</strong>.</p>
-       <p>In a prediction trial, you're shown a machine and an element that
-       <em>hasn't been tested yet</em>. The machine starts in its idle state. Your task:
-       use what you've observed to judge how likely it is that this machine will activate
-       with this new element.</p>
-       <p>Respond using the <strong>4-point scale</strong>:</p>
-       ${PageHelpers.scalePreview}
-       <ul>
-         <li><span class="intro-highlight hl-orange">Definitely Active</span> — you are
-         confident this machine will activate.</li>
-         <li><span class="intro-highlight hl-blue">Definitely Idle</span> — you are
-         confident it will stay idle.</li>
-         <li>The middle options express varying degrees of uncertainty.</li>
-       </ul>
-       <p>After selecting a response, press <strong>Continue</strong> — the actual outcome
-       is revealed and added to the Knowledge Table.</p>`,
+       <div class="intro-callout callout-gray">
+         <strong>Reminder:</strong> you may fail at most <strong>two</strong> attention
+         checks in the real experiment. Study your observations carefully.
+       </div>
+       <p>Now for the main task: <strong>Prediction trials</strong>.</p>
+       <p>You're shown a machine and an element that <em>hasn't been tested yet</em>.
+       The machine appears <strong>greyed out</strong> — its state is not yet known.
+       Use what you've observed to judge how likely it is that this machine will activate
+       with this element.</p>
+       <p>Respond using the 4-point scale — then press Continue to reveal the outcome:</p>
+       ${PageHelpers.scalePreview}`,
     ];
 
     const goalPage = [
@@ -2514,8 +2505,7 @@ const BlockConfig = (() => {
                 position: "left",
                 padding: 6,
                 text: `This machine just <strong style="color:#e65c00">activated</strong>!
-                       It's glowing orange and produced an ${EI} Energy element.
-                       This is what happens when the right element is used.`,
+                       It's glowing orange and produced an ${EI} Energy element.`,
                 buttonText: "Got it",
               },
               {
@@ -2523,8 +2513,8 @@ const BlockConfig = (() => {
                 position: "right",
                 padding: 10,
                 text: `The result is automatically logged in the
-                       <strong>Knowledge Table</strong>. This element now appears under
-                       the machine's <strong style="color:#e65c00">Active</strong> column.`,
+                       <strong>Knowledge Table</strong> under the
+                       <strong style="color:#e65c00">Active</strong> column.`,
                 buttonText: "Got it",
                 onEnter() {
                   const el = document.querySelector(
@@ -2545,15 +2535,15 @@ const BlockConfig = (() => {
                 padding: 6,
                 text: `This time the machine stays
                        <strong style="color:#0077bb">idle</strong> — no glow, no Energy
-                       element. When the wrong element is used, nothing is produced.`,
+                       element produced.`,
                 buttonText: "Got it",
               },
               {
                 target: "#element-grid",
                 position: "right",
                 padding: 10,
-                text: `Idle results are logged too. This element now appears under the
-                       machine's <strong style="color:#0077bb">Idle</strong> column.`,
+                text: `Idle results are logged too — under the
+                       <strong style="color:#0077bb">Idle</strong> column.`,
                 buttonText: "Got it",
                 onEnter() {
                   const el = document.querySelector(
