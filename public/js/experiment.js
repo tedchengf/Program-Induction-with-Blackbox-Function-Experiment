@@ -938,6 +938,7 @@ const Experiment = (() => {
     machineDisplayName,
     setElementDisplayLabels,
     getDisplayLabel,
+    machineRow(name) { return machineRowMap[name] ?? -1; },
     get mode() {
       return mode;
     },
@@ -1283,7 +1284,13 @@ const TrialRunner = (() => {
       nextBtn.disabled = false;
 
       if (trial._trialType === "observation" && trial._meta?.elemId) {
-        autoHighlightObsElement(trial._meta.elemId);
+        const machineName = trial.specs?.[0]?.machines?.[0];
+        const col = trial._meta.correctAnswer === "a" ? 0 : 1;
+        const row = Experiment.machineRow(machineName);
+        const targetBox = row >= 0
+          ? document.querySelector(`.element-box[data-row="${row}"][data-col="${col}"]`)
+          : null;
+        autoHighlightObsElement(trial._meta.elemId, targetBox);
       }
     }
 
@@ -1537,7 +1544,7 @@ function _pushHover(elemId) {
    ════════════════════════════════════════════════════════ */
 let _obsHighlightTimer = null;
 
-function autoHighlightObsElement(elemId) {
+function autoHighlightObsElement(elemId, targetBox) {
   if (!elemId) return;
   const id = String(elemId).toUpperCase();
 
@@ -1549,11 +1556,13 @@ function autoHighlightObsElement(elemId) {
 
   // rAF so the class removal above has settled before we re-add
   requestAnimationFrame(() => {
-    document.querySelectorAll(`.element-slot-row[data-elem-id="${id}"]`).forEach((el) => {
-      el.classList.add("elem-obs-highlight");
-      const box = el.closest(".element-box");
-      if (box) box.classList.add("elem-obs-highlight-box");
-    });
+    // Highlight element rows globally across all machines
+    document.querySelectorAll(`.element-slot-row[data-elem-id="${id}"]`)
+      .forEach((el) => el.classList.add("elem-obs-highlight"));
+    // Box highlight goes only to the specific cell for this trial
+    if (targetBox) {
+      targetBox.classList.add("elem-obs-highlight-box");
+    }
     _obsHighlightTimer = setTimeout(() => {
       document.querySelectorAll(".element-slot-row.elem-obs-highlight")
         .forEach((el) => el.classList.remove("elem-obs-highlight"));
