@@ -1191,12 +1191,12 @@ body::after {
   100%   { background: transparent; box-shadow: none; }
 }
 @keyframes obs-box-orange {
-  from { box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.58), 0 8px 22px rgba(255, 102, 0, 0.28); }
-  to   { box-shadow: 0 8px 22px rgba(255, 102, 0, 0.14); }
+  0%, 8% { box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.58), 0 8px 22px rgba(255, 102, 0, 0.28); }
+  100%   { box-shadow: 0 8px 22px rgba(255, 102, 0, 0.14); }
 }
 @keyframes obs-box-blue {
-  from { box-shadow: 0 0 0 3px rgba(0, 204, 255, 0.52), 0 8px 22px rgba(0, 204, 255, 0.24); }
-  to   { box-shadow: 0 8px 22px rgba(0, 204, 255, 0.12); }
+  0%, 8% { box-shadow: 0 0 0 3px rgba(0, 204, 255, 0.52), 0 8px 22px rgba(0, 204, 255, 0.24); }
+  100%   { box-shadow: 0 8px 22px rgba(0, 204, 255, 0.12); }
 }
 
 .element-box[data-col="0"] .element-slot-row.elem-obs-highlight {
