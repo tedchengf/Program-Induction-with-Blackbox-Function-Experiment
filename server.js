@@ -75,6 +75,7 @@ async function initDB() {
   `);
 
   await pool.query(`ALTER TABLE trials ADD COLUMN IF NOT EXISTS hover_log TEXT`);
+  await pool.query(`ALTER TABLE subjects ADD COLUMN IF NOT EXISTS mode TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS element_mappings (
@@ -108,7 +109,7 @@ async function initDB() {
 // Called at the very start of an experiment session
 app.post('/api/start', async (req, res) => {
   try {
-    const { prolific } = req.body;
+    const { prolific, mode } = req.body;
 
     // Pick sequence with the fewest completions (ties broken randomly)
     const { rows } = await pool.query(
@@ -123,8 +124,8 @@ app.post('/api/start', async (req, res) => {
 
     await pool.query(
       `INSERT INTO subjects
-         (pid, prolific_id, study_id, session_id, sequence_id, block_order, state, started_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'started', NOW())`,
+         (pid, prolific_id, study_id, session_id, sequence_id, block_order, mode, state, started_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'started', NOW())`,
       [
         pid,
         prolific?.PROLIFIC_PID ?? null,
@@ -132,6 +133,7 @@ app.post('/api/start', async (req, res) => {
         prolific?.SESSION_ID   ?? null,
         chosen.sequence_id,
         chosen.block_order,
+        mode ?? 'credit',
       ]
     );
 
@@ -169,7 +171,7 @@ app.post('/api/trial', async (req, res) => {
         'UPDATE subjects SET attn_fail_count = attn_fail_count + 1 WHERE pid = $1',
         [t.pid]
       );
-    } else if (t.trialType === 'prediction') {
+    } else if (t.trialType === 'prediction' && t.blockNum != null) {
       const inc = ['pred_total = pred_total + 1'];
       if (t.correct)   inc.push('pred_correct = pred_correct + 1');
       if (t.critical) {
@@ -312,7 +314,7 @@ app.get('/api/debug/sequences', async (req, res) => {
 app.get('/api/debug/subjects', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT pid, prolific_id, sequence_id, block_order, state, started_at,
+      `SELECT pid, prolific_id, mode, sequence_id, block_order, state, started_at,
               total_time_ms, attn_fail_count,
               pred_correct || '/' || pred_total AS pred,
               critical_pred_correct || '/' || critical_pred_total AS critical_pred

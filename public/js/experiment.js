@@ -507,7 +507,11 @@ async function initSession() {
     const res = await fetch("/api/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prolific: getProlificParams(), forcedPid }),
+      body: JSON.stringify({
+        prolific: getProlificParams(),
+        forcedPid,
+        mode: new URLSearchParams(window.location.search).get("mode") ?? "credit",
+      }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
