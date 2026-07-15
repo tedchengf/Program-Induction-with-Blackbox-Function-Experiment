@@ -2474,6 +2474,9 @@ const BlockConfig = (() => {
   const skipTutorial    = debug.skipTutorial    ?? false;
   const skipTransitions = debug.skipTransitions ?? false;
 
+  // Detect URL mode early so every function in this scope sees it
+  const expMode = new URLSearchParams(window.location.search).get("mode") ?? "credit";
+
   // Session init — gets pid from server and server-assigned block presentation order
   const session = await initSession();
   const blockOrder = session.blockOrder;  // e.g. [1, 2, 3, 0]
@@ -2923,8 +2926,6 @@ const BlockConfig = (() => {
       });
     }
   }
-
-  const expMode = new URLSearchParams(window.location.search).get("mode") ?? "credit";
 
   function showConsent() {
     Introduction.start(
