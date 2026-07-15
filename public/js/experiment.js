@@ -1580,17 +1580,26 @@ const Introduction = (() => {
   const content   = document.getElementById("intro-content");
   const indicator = document.getElementById("intro-page-indicator");
   const btn       = document.getElementById("intro-next-btn");
+  const exitBtn   = document.getElementById("intro-exit-btn");
 
   let pages = [];
   let pageIndex = 0;
   let onDone = null;
-
+  let onExit = null;
   let finalBtnText = "Begin Experiment";
+  let exitBtnText = null;
 
   function render() {
     content.innerHTML = pages[pageIndex];
     indicator.textContent = `${pageIndex + 1} / ${pages.length}`;
     btn.textContent = pageIndex < pages.length - 1 ? "Continue" : finalBtnText;
+    const isLast = pageIndex === pages.length - 1;
+    if (isLast && exitBtnText) {
+      exitBtn.textContent = exitBtnText;
+      exitBtn.classList.remove("hidden");
+    } else {
+      exitBtn.classList.add("hidden");
+    }
   }
 
   function advance() {
@@ -1600,22 +1609,32 @@ const Introduction = (() => {
     } else {
       overlay.classList.add("hidden");
       overlay.classList.remove("canvas-mode");
+      exitBtn.classList.add("hidden");
       if (typeof onDone === "function") onDone();
     }
   }
 
   btn.addEventListener("click", advance);
 
+  exitBtn.addEventListener("click", () => {
+    overlay.classList.add("hidden");
+    overlay.classList.remove("canvas-mode");
+    exitBtn.classList.add("hidden");
+    if (typeof onExit === "function") onExit();
+  });
+
   /**
    * @param {string[]} pageArray
    * @param {Function} callback
-   * @param {{ finalButton?: string, canvasMode?: boolean }} [opts]
+   * @param {{ finalButton?: string, canvasMode?: boolean, exitButton?: string, onExit?: Function }} [opts]
    */
   function start(pageArray, callback, opts = {}) {
     pages = pageArray;
     pageIndex = 0;
     onDone = callback;
+    onExit = opts.onExit ?? null;
     finalBtnText = opts.finalButton ?? "Begin Experiment";
+    exitBtnText = opts.exitButton ?? null;
     btn.style.display = "";
     overlay.classList.toggle("canvas-mode", !!opts.canvasMode);
     overlay.classList.remove("hidden");
@@ -1628,6 +1647,7 @@ const Introduction = (() => {
       <p>We greatly appreciate your time and effort. You may now close this window.</p>`;
     indicator.textContent = "";
     btn.style.display = "none";
+    exitBtn.classList.add("hidden");
     overlay.classList.remove("hidden");
   }
 
@@ -1799,6 +1819,166 @@ const PageHelpers = (() => {
  * @param {Record<string,string>} roleToElementId — e.g. { eA: "D1", eB: "B1", ... }
  * @param {string[][]} resolved.machineNamesPerBlock — e.g. [["m1","m2","m3"], ...]
  */
+function buildConsentPages(mode) {
+  if (mode === "paid") {
+    return [
+      /* ── Page 1 ─────────────────────────────────────────────── */
+      `<h2>Research Informed Consent Form</h2>
+       <p style="font-size:0.85rem;color:rgba(11,19,36,0.5);margin-bottom:18px;">Program Induction with Black-Box Functions</p>
+
+       <div class="consent-section">
+         <h3>Investigators</h3>
+         <p>Feng Cheng, Bob Rehder</p>
+       </div>
+
+       <div class="consent-section">
+         <h3>Invitation to Participate</h3>
+         <p>You are invited to participate in a research study. This form has information to help you decide whether or not you wish to participate — please review it carefully. Your participation is voluntary. Please ask any questions you have about the study or about this form before deciding to participate.</p>
+       </div>
+
+       <div class="consent-section">
+         <h3>Purpose of the Study</h3>
+         <p>The purpose of this study is to learn more about how people utilize causal knowledge to infer abstract (non-perceptual) categories.</p>
+       </div>
+
+       <div class="consent-section">
+         <h3>Description of Study Procedures</h3>
+         <p>If you agree to participate, you will use a computer to complete a learning task. In this study, you will be given some observations of the machines' behavior, and in some trials you will be asked to submit your prediction about whether a machine will take/give some elements. You will be encouraged to make your prediction as accurate as possible, and several attention checks are implemented to ensure you understand your task accurately. This experiment takes 10–120 minutes to complete.</p>
+       </div>
+
+       <div class="consent-section">
+         <h3>Risks or Discomforts</h3>
+         <p>While there are measures put in place by the researcher to secure data, there is always a risk of a potential breach of confidentiality.</p>
+       </div>`,
+
+      /* ── Page 2 ─────────────────────────────────────────────── */
+      `<div class="consent-section">
+         <h3>Benefits</h3>
+         <p>It is hoped that this study will contribute to your understanding of how knowledge is discovered in psychology and help the investigator better understand the process through which people learn abstract concepts through causal inference.</p>
+         <p>You are not expected to directly benefit from participation in the study.</p>
+       </div>
+
+       <div class="consent-section">
+         <h3>Compensation</h3>
+         <p>You will receive $4 for completing the study. If you withdraw early or fail too many attention checks, no compensation will be provided.</p>
+       </div>
+
+       <div class="consent-section">
+         <h3>Voluntary Participation</h3>
+         <p>Participating in this study is completely voluntary. You may choose not to take part in the study or to stop participating at any time, for any reason, without penalty or negative consequences.</p>
+         <p>We may end your participation in the study if you fail too many attention checks.</p>
+         <p>If you withdraw or are withdrawn from the study early, then we will not keep information about you that is already collected. If you withdraw from the study or have your participation ended by us, no compensation will be provided.</p>
+       </div>
+
+       <div class="consent-section">
+         <h3>Privacy &amp; Data Confidentiality</h3>
+         <p>In this study, you may be asked to provide information that could be used to identify you personally. This information will be kept confidential. Only researchers and others that will keep the information confidential (e.g., regulatory agencies or oversight groups) may access information that could personally identify you.</p>
+         <p><em>Future use of Data:</em> Information about you collected for this study may be shared with other researchers, used for other research studies, or placed in a data repository. These studies may be similar to this study or completely different. All information that could identify you will be removed before sharing the data or using it for other research studies. We will not ask you for additional permission before sharing the information.</p>
+       </div>
+
+       <div class="consent-section">
+         <h3>Access to Your Study Information</h3>
+         <p>We will not give you access to the information that is collected about you in this study.</p>
+       </div>`,
+
+      /* ── Page 3 (final) ─────────────────────────────────────── */
+      `<div class="consent-section">
+         <h3>Contact Information</h3>
+         <p>You are encouraged to ask questions at any time during this study. For information about the study, contact Prof. Robert Rehder at bob.rehder@nyu.edu, 6 Washington Place, Room 586, Meyer Building, New York, NY 10003.</p>
+         <p>If you have questions about your rights as a research participant or if you believe you have been harmed from the research, please contact the NYU Human Research Protection Program at (212) 998-4808 or ask.humansubjects@nyu.edu.</p>
+       </div>
+
+       <div class="consent-agreement">
+         <p><strong>Agreement to Participate</strong></p>
+         <p>By clicking <em>I Agree</em> below, you are agreeing to participate in this study. Make sure you understand what the study involves before you agree. You may keep a copy of this form.</p>
+         <p><em>I agree to participate in this research study.</em></p>
+       </div>`,
+    ];
+  }
+
+  /* ── Credit version (IRB-FY2026-11540) ─────────────────────────────── */
+  return [
+    /* ── Page 1 ─────────────────────────────────────────────── */
+    `<h2>Research Informed Consent Form</h2>
+     <p style="font-size:0.85rem;color:rgba(11,19,36,0.5);margin-bottom:4px;">For Department Pool Participants Earning Credit &nbsp;·&nbsp; IRB-FY2026-11540</p>
+     <p style="font-size:0.85rem;color:rgba(11,19,36,0.5);margin-bottom:18px;">Program Induction with Black-Box Functions</p>
+
+     <div class="consent-section">
+       <h3>Investigators</h3>
+       <p>Feng Cheng, Bob Rehder</p>
+     </div>
+
+     <div class="consent-section">
+       <h3>Invitation to Be a Part of a Research Study</h3>
+       <p>You are invited to participate in a research study. This form has information to help you decide whether or not you wish to participate — please review it carefully. Your participation is voluntary. Please ask any questions you have about the study or about this form before deciding to participate.</p>
+     </div>
+
+     <div class="consent-section">
+       <h3>Purpose of the Study</h3>
+       <p>The purpose of this study is to learn more about how people utilize causal knowledge to infer abstract (non-perceptual) categories.</p>
+     </div>
+
+     <div class="consent-section">
+       <h3>Description of Study Procedures</h3>
+       <p>If you agree to participate, you will use a computer to complete a learning task. In this study, you will be given some observations of the machines' behavior, and in some trials you will be asked to submit your prediction about whether a machine will take/give some elements. You will be encouraged to make your prediction as accurate as possible, and several attention checks are implemented to ensure you understand your task accurately. This study should take 10 to 120 minutes to complete.</p>
+     </div>`,
+
+    /* ── Page 2 ─────────────────────────────────────────────── */
+    `<div class="consent-section">
+       <h3>Risks or Discomforts</h3>
+       <p>While there are measures put in place by the researcher to secure data, there is always a risk of a potential breach of confidentiality. Please tell the researchers if you believe you are harmed from your participation in the study.</p>
+     </div>
+
+     <div class="consent-section">
+       <h3>Benefits</h3>
+       <p>It is hoped that this study will contribute to your understanding of how knowledge is discovered in psychology and help the investigator better understand the process through which people learn abstract concepts through causal inference.</p>
+     </div>
+
+     <div class="consent-section">
+       <h3>Compensation</h3>
+       <p>You will receive 1 credit. If you withdraw before the end of the study, you will receive credit for the time you have completed. If you choose not to participate, you can fulfill the course requirement in other ways besides participating in this study.</p>
+     </div>
+
+     <div class="consent-section">
+       <h3>Voluntary Participation</h3>
+       <p>Participating in this study is completely voluntary. You may choose not to take part in the study or to stop participating at any time, for any reason, without penalty or negative consequences. Not taking part or withdrawing from the study will not affect your grade or academic standing in any way. You have the right to skip or not answer any questions you prefer not to answer. When you complete the study, a thorough explanation of it will be provided.</p>
+       <p>If you withdraw from the study early, you will receive credit for the time you have completed. You can withdraw by simply notifying the experimenter.</p>
+       <p>We may end your participation in the study if you fail many attention checks.</p>
+       <p>If you withdraw or are withdrawn from the study early, then we will not keep information about you that is already collected.</p>
+     </div>`,
+
+    /* ── Page 3 ─────────────────────────────────────────────── */
+    `<div class="consent-section">
+       <h3>Privacy &amp; Data Confidentiality</h3>
+       <p>In this study, you may be asked to provide information that could be used to identify you personally. This information will be kept confidential. Only researchers and others that will keep the information confidential (e.g., regulatory agencies or oversight groups) may access information that could personally identify you.</p>
+       <p><em>Future use of Data:</em> Information about you collected for this study may be shared with other researchers, used for other research studies, or placed in a data repository. These studies may be similar to this study or completely different. All information that could identify you will be removed before sharing the data or using it for other research studies. We will not ask you for additional permission before sharing the information.</p>
+     </div>
+
+     <div class="consent-section">
+       <h3>Access to Your Study Information</h3>
+       <p>We will not give you access to the information that is collected about you in this study.</p>
+     </div>`,
+
+    /* ── Page 4 (final) ─────────────────────────────────────── */
+    `<div class="consent-section">
+       <h3>Contact Information</h3>
+       <p>You are encouraged to ask questions at any time during this study. For information about the study, contact Prof. Robert Rehder at bob.rehder@nyu.edu, 6 Washington Place, Room 586, Meyer Building, New York, NY 10003.</p>
+       <p>If you have questions about your rights as a research participant or if you believe you have been harmed from the research, please contact the NYU Human Research Protection Program at (212) 998-4808 or ask.humansubjects@nyu.edu.</p>
+     </div>
+
+     <div class="consent-section">
+       <p>As a part of your participation in the study, if the researchers learn that you may be having thoughts about suicide or harming yourself, we may reach out to you privately to offer mental health resources. You will have the option to decide whether you would like us to connect you to NYU's Wellness Exchange or other professional services. We will not contact anyone on your behalf without your explicit permission, unless there is an immediate risk of serious harm.</p>
+       <p>I understand the procedures and potential risks, and I consent to participate in this study, including being contacted by the research team if my responses raise concern about my emotional well-being.</p>
+     </div>
+
+     <div class="consent-agreement">
+       <p><strong>Agreement to Participate</strong></p>
+       <p>By clicking <em>I Agree</em> below, you are agreeing to participate in this study. Make sure you understand what the study involves before you agree. If you have questions about the study after you agree to participate, you can contact the research team using the information provided above. You may keep a copy of this form.</p>
+       <p><em>I agree to participate in this research study.</em></p>
+     </div>`,
+  ];
+}
+
 function buildIntroPages(resolved) {
   const { ENERGY_ELEM_ID, elemImg, canvasPreview } = PageHelpers;
   const EI = (sz) => elemImg(ENERGY_ELEM_ID, sz);
@@ -2712,9 +2892,30 @@ const BlockConfig = (() => {
     }
   }
 
-  if (skipIntro) {
-    afterIntro();
-  } else {
-    Introduction.start(buildIntroPages(resolved), afterIntro, { finalButton: "Start Practice Trial" });
+  const expMode = new URLSearchParams(window.location.search).get("mode") ?? "credit";
+
+  function showConsent() {
+    Introduction.start(
+      buildConsentPages(expMode),
+      () => {
+        if (skipIntro) {
+          afterIntro();
+        } else {
+          Introduction.start(buildIntroPages(resolved), afterIntro, { finalButton: "Start Practice Trial" });
+        }
+      },
+      {
+        finalButton: "I Agree to Participate",
+        exitButton: "Decline & Exit",
+        onExit: () => {
+          Introduction.showEndScreen(
+            `<h2>Thank You</h2>
+             <p>You have chosen not to participate in this study. You may close this window.</p>`
+          );
+        },
+      }
+    );
   }
+
+  showConsent();
 })();
