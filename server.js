@@ -354,7 +354,12 @@ app.get('/api/debug/trials/:pid', async (req, res) => {
       rt_ms:     v => v == null ? '<span class="null">—</span>' : `${(v/1000).toFixed(2)}s`,
       hover_log: v => {
         if (v == null) return '<span class="null">—</span>';
-        try { return JSON.parse(v).join(' → '); } catch { return v; }
+        try {
+          const arr = JSON.parse(v);
+          if (!arr.length) return '<span class="null">—</span>';
+          if (typeof arr[0] === 'string') return arr.join(' → ');
+          return arr.map(h => `${h.id}(${h.durationMs}ms)`).join(' → ');
+        } catch { return v; }
       },
     })));
   } catch (err) {

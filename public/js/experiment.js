@@ -1433,14 +1433,27 @@ const PredictionScore = (() => {
    Hover log — ordered sequence of element IDs hovered per trial
    ════════════════════════════════════════════════════════ */
 let _hoverLog = [];
-function _resetHoverLog() { _hoverLog = []; }
-function _getHoverLog()   { return [..._hoverLog]; }
-function _pushHover(elemId) {
+let _hoverCurrent = null;  // { id, startMs } while a hover is in progress
+
+function _resetHoverLog() {
+  _endHover();
+  _hoverLog = [];
+}
+function _getHoverLog() {
+  _endHover();  // close any open hover at submission time
+  return [..._hoverLog];
+}
+function _startHover(elemId) {
   if (!elemId) return;
   const id = String(elemId).toUpperCase();
-  // Deduplicate consecutive entries (mouseover fires on child elements too)
-  if (_hoverLog.length > 0 && _hoverLog[_hoverLog.length - 1] === id) return;
-  _hoverLog.push(id);
+  if (_hoverCurrent && _hoverCurrent.id === id) return;  // still on same element
+  _endHover();
+  _hoverCurrent = { id, startMs: Date.now() };
+}
+function _endHover() {
+  if (!_hoverCurrent) return;
+  _hoverLog.push({ id: _hoverCurrent.id, durationMs: Date.now() - _hoverCurrent.startMs });
+  _hoverCurrent = null;
 }
 
 /* ════════════════════════════════════════════════════════
@@ -1510,7 +1523,7 @@ function _pushHover(elemId) {
     if (el) {
       clearHighlights();
       highlightElement(el.dataset.elemId);
-      _pushHover(el.dataset.elemId);
+      _startHover(el.dataset.elemId);
     }
   });
 
@@ -1520,6 +1533,7 @@ function _pushHover(elemId) {
     const related = e.relatedTarget;
     if (related && related.closest && findElemTarget({ target: related })) return;
     clearHighlights();
+    _endHover();
   });
 
   // Reverse highlighting: hovering items in the knowledge table highlights canvas + caption.
@@ -1529,7 +1543,7 @@ function _pushHover(elemId) {
       if (el) {
         clearHighlights();
         highlightElement(el.dataset.elemId);
-        _pushHover(el.dataset.elemId);
+        _startHover(el.dataset.elemId);
       }
     });
     grid.addEventListener("mouseout", (e) => {
@@ -1538,6 +1552,7 @@ function _pushHover(elemId) {
       const related = e.relatedTarget;
       if (related && related.closest && findGridTarget({ target: related })) return;
       clearHighlights();
+      _endHover();
     });
   }
 })();
