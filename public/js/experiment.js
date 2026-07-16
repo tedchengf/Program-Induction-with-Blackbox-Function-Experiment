@@ -2863,39 +2863,37 @@ const BlockConfig = (() => {
       ? `<p>You got <strong>${correct} out of ${total}</strong> predictions correct (${pct}%).</p>`
       : "";
 
-    if (expMode === "credit") {
-      Introduction.showEndScreen(
-        `<h2>Thank You!</h2>
-         <p>You have completed the experiment. Your responses have been recorded.</p>
-         ${scoreHtml}
-         <p>We greatly appreciate your time and effort. Please read the following debriefing before acknowledging.</p>
+    Introduction.showEndScreen(
+      `<h2>Thank You!</h2>
+       <p>You have completed the experiment. Your responses have been recorded.</p>
+       ${scoreHtml}
+       <p>We greatly appreciate your time and effort. Please read the following debriefing before acknowledging.</p>
 
-         <h2 style="margin-top:28px;">Debriefing</h2>
-         <p style="font-size:0.85rem;color:rgba(11,19,36,0.5);margin-bottom:14px;">Program Induction with Black-Box Functions &nbsp;·&nbsp; IRB-FY2026-11540</p>
-         <p>In this study, we investigated how humans learn to create hierarchical organization of concepts purely from the causal information of the objects. Hierarchical organization of concepts is important for efficient encoding of our experiences and provides important structure for generalizing observations and planning future actions. However, few studies in the literature investigate the formation of such hierarchies. In this study, we hypothesized that humans demonstrate a simplicity bias in this hierarchical organization, reusing existing concepts in the hierarchy until the observation conflicts with the prediction of the hierarchy. This conflict drives the learner to refine the existing structure, often creating new sub-concepts that will grow the hierarchy. In this experiment, you have encountered many instances where we ask you to predict a machine's behavior on some object, and we will use your prediction to analyze the extent to which you are reusing existing categories.</p>
-         <p style="margin-top:12px;"><em>For advanced students:</em> This experiment provides critical data to fit our formal program induction model. Specifically, we approach this learning problem from the angle of a hard generalization task: although the system usually comes with a set of known functions, their actual intensions — and hence domains and ranges — are unknown and have to be inferred from their behavior with respect to the objects they transform. However, the amount of objects these functions interact with can be very large or even unbounded, so learners need to find a structured way to organize the scarce observations and generalize them to other objects/functions. Our proposed model is based on the Language of Thought (LoT) framework: we treat learning as a program induction process that induces programs (formal, rule-based descriptions) of various causal functions from observations. Being computational level models, their execution relies on enumerating a mind-numbing amount of possible hypotheses that is intractable to the conscious mind. Our attempt here is to give an algorithmic program induction model that utilizes some level of external semantics to render the inference problem tractable. Here's our core intuition: our analysis finds the common ground between two categorical representations of objects: the first set comes from domain-general features of objects (e.g., categories and taxonomies); the second set comes from domain-specific affordances of objects (i.e., whether two objects have the same behavior under some causal functions). We generalize observations of objects aggressively along their features, but refine our category representation when the function's behavior contradicts our predictions. If the two categorical representations overlap, we can converge to their optimal middle ground with this iterative refinement process.</p>
-         <div class="consent-agreement" style="margin-top:20px;">
-           <em>I feel that I have been adequately debriefed about the nature of the study. The investigator has explained the purposes of the research to me, and I feel that any questions I have asked were satisfactorily answered.</em>
-         </div>
-         <button type="button" class="debrief-ack-btn">I Acknowledge</button>`
-      );
-      document.querySelector(".debrief-ack-btn").addEventListener("click", () => {
+       <h2 style="margin-top:28px;">Debriefing</h2>
+       <p style="font-size:0.85rem;color:rgba(11,19,36,0.5);margin-bottom:14px;">Program Induction with Black-Box Functions &nbsp;·&nbsp; IRB-FY2026-11540</p>
+       <p>In this study, we investigated how humans learn to create hierarchical organization of concepts purely from the causal information of the objects. Hierarchical organization of concepts is important for efficient encoding of our experiences and provides important structure for generalizing observations and planning future actions. However, few studies in the literature investigate the formation of such hierarchies. In this study, we hypothesized that humans demonstrate a simplicity bias in this hierarchical organization, reusing existing concepts in the hierarchy until the observation conflicts with the prediction of the hierarchy. This conflict drives the learner to refine the existing structure, often creating new sub-concepts that will grow the hierarchy. In this experiment, you have encountered many instances where we ask you to predict a machine's behavior on some object, and we will use your prediction to analyze the extent to which you are reusing existing categories.</p>
+       <p style="margin-top:12px;"><em>For advanced students:</em> This experiment provides critical data to fit our formal program induction model. Specifically, we approach this learning problem from the angle of a hard generalization task: although the system usually comes with a set of known functions, their actual intensions — and hence domains and ranges — are unknown and have to be inferred from their behavior with respect to the objects they transform. However, the amount of objects these functions interact with can be very large or even unbounded, so learners need to find a structured way to organize the scarce observations and generalize them to other objects/functions. Our proposed model is based on the Language of Thought (LoT) framework: we treat learning as a program induction process that induces programs (formal, rule-based descriptions) of various causal functions from observations. Being computational level models, their execution relies on enumerating a mind-numbing amount of possible hypotheses that is intractable to the conscious mind. Our attempt here is to give an algorithmic program induction model that utilizes some level of external semantics to render the inference problem tractable. Here's our core intuition: our analysis finds the common ground between two categorical representations of objects: the first set comes from domain-general features of objects (e.g., categories and taxonomies); the second set comes from domain-specific affordances of objects (i.e., whether two objects have the same behavior under some causal functions). We generalize observations of objects aggressively along their features, but refine our category representation when the function's behavior contradicts our predictions. If the two categorical representations overlap, we can converge to their optimal middle ground with this iterative refinement process.</p>
+       <div class="consent-agreement" style="margin-top:20px;">
+         <em>I feel that I have been adequately debriefed about the nature of the study. The investigator has explained the purposes of the research to me, and I feel that any questions I have asked were satisfactorily answered.</em>
+       </div>
+       <button type="button" class="debrief-ack-btn">I Acknowledge</button>`
+    );
+    document.querySelector(".debrief-ack-btn").addEventListener("click", () => {
+      if (expMode === "paid") {
+        Introduction.showEndScreen(
+          `<h2>All Done</h2>
+           <p>Thank you for your participation.</p>
+           <p>You will be redirected to Prolific in a few seconds. If you are not redirected automatically,
+              <a href="${PROLIFIC_COMPLETION_URL}">click here</a>.</p>`
+        );
+        setTimeout(() => { window.location.href = PROLIFIC_COMPLETION_URL; }, 4000);
+      } else {
         Introduction.showEndScreen(
           `<h2>All Done</h2>
            <p>Thank you for your participation. You may now close this window.</p>`
         );
-      });
-    } else {
-      Introduction.showEndScreen(
-        `<h2>Thank You!</h2>
-         <p>You have completed the experiment. Your responses have been recorded.</p>
-         ${scoreHtml}
-         <p>We greatly appreciate your time and effort.</p>
-         <p>You will be redirected to Prolific in a few seconds. If you are not redirected automatically,
-            <a href="${PROLIFIC_COMPLETION_URL}">click here</a>.</p>`
-      );
-      setTimeout(() => { window.location.href = PROLIFIC_COMPLETION_URL; }, 4000);
-    }
+      }
+    });
   }
 
   const numBlocks = resolved.machineNamesPerBlock.length;
