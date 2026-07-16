@@ -47,9 +47,9 @@
 
   "debug": {
     "skipIntro": false,
-    "skipTutorial": true,
+    "skipTutorial": false,
     "skipTransitions": false,
-    "skipAttentionChecks": true,
+    "skipAttentionChecks": false,
     "attentionFailLimit": 1
   },
 
