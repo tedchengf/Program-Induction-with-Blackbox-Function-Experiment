@@ -2485,9 +2485,10 @@ const BlockConfig = (() => {
 
   // Apply debug overrides
   if (debug.attentionFailLimit != null) TrialRunner.attentionFailLimit = debug.attentionFailLimit;
-  const skipIntro       = debug.skipIntro       ?? false;
-  const skipTutorial    = debug.skipTutorial    ?? false;
-  const skipTransitions = debug.skipTransitions ?? false;
+  const skipIntro            = debug.skipIntro            ?? false;
+  const skipTutorial         = debug.skipTutorial         ?? false;
+  const skipTransitions      = debug.skipTransitions      ?? false;
+  const skipAttentionChecks  = debug.skipAttentionChecks  ?? false;
 
   // Detect URL mode early so every function in this scope sees it
   const expMode = new URLSearchParams(window.location.search).get("mode") ?? "credit";
@@ -2807,7 +2808,10 @@ const BlockConfig = (() => {
       console.log(`Block ${blockIdx + 1} done. Responses so far:`, TrialRunner.responses.length);
       next();
     };
-    TrialRunner.load(ordBlocks[blockIdx], { keepResponses: true });
+    const blockTrials = skipAttentionChecks
+      ? ordBlocks[blockIdx].filter(t => t._trialType !== "attention_check")
+      : ordBlocks[blockIdx];
+    TrialRunner.load(blockTrials, { keepResponses: true });
   }
 
   function runBlock1() {
