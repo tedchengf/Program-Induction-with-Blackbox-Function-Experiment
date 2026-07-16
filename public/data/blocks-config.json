@@ -46,10 +46,11 @@
   },
 
   "debug": {
-    "skipIntro": true,
-    "skipTutorial": true,
-    "skipTransitions": true,
-    "attentionFailLimit": 99
+    "skipIntro": false,
+    "skipTutorial": false,
+    "skipTransitions": false,
+    "skipAttentionChecks": true,
+    "attentionFailLimit": 1
   },
 
   "randomization": {
@@ -65,6 +66,29 @@
       "condition": "PP",
       "trials": [
         { "type": "observation",    "machineSlot": "m1", "elementRole": "eA", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eK", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eD", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eI", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eA", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eD", "state": "a" },
+
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eM", "state": "a" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eE", "state": "r" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eF", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eM", "state": "a" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eC", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eC", "state": "a" },
+
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eD", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eJ", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eM", "state": "a" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eN", "state": "a" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eC", "state": "r" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eG", "state": "r" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eH", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eB", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eA", "state": "a" },
         { "type": "prediction",     "machineSlot": "m3", "elementRole": "eC", "state": "a", "critical": true }
       ]
     },
@@ -73,6 +97,29 @@
       "condition": "PN",
       "trials": [
         { "type": "observation",    "machineSlot": "m1", "elementRole": "eA", "state": "r" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eD", "state": "r" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eM", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eA", "state": "r" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eO", "state": "r" },
+
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eA", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eO", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eB", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eF", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eE", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eC", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eF", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eG", "state": "r" },
+
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eD", "state": "a" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eC", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eO", "state": "r" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eI", "state": "a" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eJ", "state": "a" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eB", "state": "r" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eK", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eD", "state": "r" },
         { "type": "prediction",     "machineSlot": "m1", "elementRole": "eC", "state": "r", "critical": true }
       ]
     },
@@ -81,39 +128,62 @@
       "condition": "NP",
       "trials": [
         { "type": "observation",    "machineSlot": "m3", "elementRole": "eA", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eE", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eF", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eE", "state": "a" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eM", "state": "a" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eN", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eM", "state": "a" },
+
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eC", "state": "a" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eD", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eN", "state": "r" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eI", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eC", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eD", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eG", "state": "a" },
+
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eJ", "state": "r" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eK", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eD", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eD", "state": "a" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eA", "state": "a" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eB", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eA", "state": "r" },
         { "type": "prediction",     "machineSlot": "m2", "elementRole": "eC", "state": "a", "critical": true }
       ]
     },
-	{
-	"minorVariant": 4,
-	"condition": "NN",
-	"trials": [
-		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eM", "state": "a" },
-		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eN", "state": "r" },
-		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eI", "state": "a" },
-		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eJ", "state": "a" },
-		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eA", "state": "r" },
-		{ "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eM", "state": "a" },
-		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eB", "state": "r" },
-		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "r" },
-		{ "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eJ", "state": "a" },
+    {
+      "minorVariant": 4,
+      "condition": "NN",
+      "trials": [
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eM", "state": "a" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eN", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eI", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eJ", "state": "a" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eA", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eM", "state": "a" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eB", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eJ", "state": "a" },
 
-		{ "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eN", "state": "r" },
-		{ "type": "observation",    "machineSlot": "m2", "elementRole": "eC", "state": "a" },
-		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eK", "state": "a" },
-		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eA", "state": "r" },
-		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eF", "state": "a" },
-		{ "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eF", "state": "a" },
-		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eG", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eN", "state": "r" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eC", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eK", "state": "a" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eA", "state": "r" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eF", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eF", "state": "a" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eG", "state": "a" },
 
-		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eH", "state": "a" },
-		{ "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eB", "state": "r" },
-		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eC", "state": "r" },
-		{ "type": "observation",    "machineSlot": "m1", "elementRole": "eD", "state": "r" },
-		{ "type": "observation",    "machineSlot": "m3", "elementRole": "eD", "state": "r" },
-		{ "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eA", "state": "r" },
-		{ "type": "prediction",     "machineSlot": "m3", "elementRole": "eC", "state": "r", "critical": true }
-	]
-	}
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eH", "state": "a" },
+        { "type": "attentionCheck", "machineSlot": "m1", "elementRole": "eB", "state": "r" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eC", "state": "r" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eD", "state": "r" },
+        { "type": "observation",    "machineSlot": "m3", "elementRole": "eD", "state": "r" },
+        { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eA", "state": "r" },
+        { "type": "prediction",     "machineSlot": "m3", "elementRole": "eC", "state": "r", "critical": true }
+      ]
+    }
   ]
 }
