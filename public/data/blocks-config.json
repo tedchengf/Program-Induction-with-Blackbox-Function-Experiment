@@ -49,7 +49,7 @@
     "skipIntro": false,
     "skipTutorial": false,
     "skipTransitions": false,
-    "skipAttentionChecks": false,
+    "skipAttentionChecks": true,
     "attentionFailLimit": 1
   },
 
