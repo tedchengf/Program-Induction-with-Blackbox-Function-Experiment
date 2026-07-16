@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BBFL Experiment</title>
+  <link rel="stylesheet" href="css/experiment.css">
+</head>
+<body>
+  <!-- Introduction overlay (covers everything until dismissed) -->
+  <div id="intro-overlay">
+    <div id="intro-card">
+      <div id="intro-content"></div>
+      <div id="intro-footer">
+        <span id="intro-page-indicator"></span>
+        <div id="intro-footer-buttons">
+          <button id="intro-exit-btn" type="button" class="hidden">Decline &amp; Exit</button>
+          <button id="intro-next-btn" type="button">Continue</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tutorial overlay (game-style guided walkthrough) -->
+  <div id="tutorial-spotlight" class="hidden"></div>
+  <div id="tutorial-tooltip" class="hidden">
+    <div id="tutorial-arrow"></div>
+    <p id="tutorial-text"></p>
+    <button id="tutorial-btn" type="button">Got it</button>
+  </div>
+
+  <div id="experiment-container">
+
+    <!-- LEFT PANEL: 3×2 cells — Accept | Reject per machine (set per block) -->
+    <div id="element-panel">
+      <div id="element-grid">
+        <div class="element-box" data-row="0" data-col="0">
+          <div class="element-cell-title">— Active</div>
+          <div class="element-cell-stack"></div>
+        </div>
+        <div class="element-box" data-row="0" data-col="1">
+          <div class="element-cell-title">— Idle</div>
+          <div class="element-cell-stack"></div>
+        </div>
+
+        <div class="element-box" data-row="1" data-col="0">
+          <div class="element-cell-title">— Active</div>
+          <div class="element-cell-stack"></div>
+        </div>
+        <div class="element-box" data-row="1" data-col="1">
+          <div class="element-cell-title">— Idle</div>
+          <div class="element-cell-stack"></div>
+        </div>
+
+        <div class="element-box" data-row="2" data-col="0">
+          <div class="element-cell-title">— Active</div>
+          <div class="element-cell-stack"></div>
+        </div>
+        <div class="element-box" data-row="2" data-col="1">
+          <div class="element-cell-title">— Idle</div>
+          <div class="element-cell-stack"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: machine display + trial header -->
+    <div id="machine-panel">
+      <div id="trial-header">
+        <div id="score-display" class="hidden">Score: <span id="score-correct">0</span> / <span id="score-total">0</span></div>
+        <h2 id="trial-title"></h2>
+        <p id="trial-preamble"></p>
+      </div>
+      <div id="machine-canvas">
+        <div id="machine-rows-wrapper"></div>
+      </div>
+      <div id="trial-bottom">
+        <!-- Response inputs (scale or binary) — single wrapper in grid-row 2 -->
+        <div id="response-area">
+          <div id="response-scale-container" class="scale-off">
+            <div id="response-scale">
+              <span class="scale-label scale-label--left">Definitely Active</span>
+              <div class="scale-options">
+                <label class="scale-option"><input type="radio" name="scale-response" value="1"><span class="scale-pip"></span></label>
+                <label class="scale-option"><input type="radio" name="scale-response" value="2"><span class="scale-pip"></span></label>
+                <label class="scale-option"><input type="radio" name="scale-response" value="3"><span class="scale-pip"></span></label>
+                <label class="scale-option"><input type="radio" name="scale-response" value="4"><span class="scale-pip"></span></label>
+              </div>
+              <span class="scale-label scale-label--right">Definitely Idle</span>
+            </div>
+          </div>
+          <div id="binary-response-container" class="scale-off">
+            <button class="binary-btn binary-btn--accept" data-value="accept" type="button">Active</button>
+            <button class="binary-btn binary-btn--reject" data-value="reject" type="button">Idle</button>
+          </div>
+        </div>
+
+        <div id="trial-footer">
+          <button id="next-trial-btn" type="button">Next Trial</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <script>window.EXPERIMENT_MODE = "paid";</script>
+  <script src="js/experiment.js"></script>
+</body>
+</html>

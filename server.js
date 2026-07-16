@@ -106,6 +106,8 @@ async function initDB() {
 
 /* ─── Routes ─────────────────────────────────────────────────────────────── */
 
+app.get('/paid', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'paid.html')));
+
 // Called at the very start of an experiment session
 app.post('/api/start', async (req, res) => {
   try {
