@@ -149,6 +149,23 @@ html, body {
 #intro-content .consent-section p {
   margin: 0 0 8px;
 }
+#intro-content .debrief-ack-btn {
+  display: block;
+  margin: 24px auto 0;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 10px 32px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+  background: #0b1324;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  transition: background 0.15s;
+}
+#intro-content .debrief-ack-btn:hover {
+  background: #1e293b;
+}
 #intro-content .consent-agreement {
   margin-top: 24px;
   padding: 16px 20px;
@@ -602,6 +619,8 @@ body::after {
   padding: 0 12px;
   font-size: var(--machine-caption-font-size);
   line-height: 1.55;
+  /* Reserve exactly 2 lines so the machine strip never shifts between 1-line and 2-line captions */
+  min-height: calc(var(--machine-caption-font-size) * 1.55 * 2);
   text-align: center;
   color: rgba(11, 19, 36, 0.78);
   background: transparent;
