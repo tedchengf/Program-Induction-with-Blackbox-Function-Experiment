@@ -76,6 +76,7 @@ async function initDB() {
 
   await pool.query(`ALTER TABLE trials ADD COLUMN IF NOT EXISTS hover_log TEXT`);
   await pool.query(`ALTER TABLE subjects ADD COLUMN IF NOT EXISTS mode TEXT`);
+  await pool.query(`ALTER TABLE subjects ADD COLUMN IF NOT EXISTS reflection TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS element_mappings (
@@ -213,6 +214,20 @@ app.post('/api/element-mapping', async (req, res) => {
   }
 });
 
+app.post('/api/reflection', async (req, res) => {
+  try {
+    const { pid, reflection } = req.body;
+    await pool.query(
+      'UPDATE subjects SET reflection = $1 WHERE pid = $2',
+      [reflection ?? '', pid]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('*** /api/reflection error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Called when the experiment ends (normally or via attention-fail termination)
 app.post('/api/complete', async (req, res) => {
   try {
@@ -319,7 +334,8 @@ app.get('/api/debug/subjects', async (req, res) => {
       `SELECT pid, prolific_id, mode, sequence_id, block_order, state, started_at,
               total_time_ms, attn_fail_count,
               pred_correct || '/' || pred_total AS pred,
-              critical_pred_correct || '/' || critical_pred_total AS critical_pred
+              critical_pred_correct || '/' || critical_pred_total AS critical_pred,
+              reflection
        FROM subjects ORDER BY started_at DESC LIMIT 50`
     );
     const table = toTable(rows, {
