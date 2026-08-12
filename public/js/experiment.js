@@ -1871,7 +1871,7 @@ function buildConsentPages(mode) {
 
        <div class="consent-section">
          <h3>Description of Study Procedures</h3>
-         <p>If you agree to participate, you will use a computer to complete a learning task. In this study, you will be given some observations of the machines' behavior, and in some trials you will be asked to submit your prediction about whether a machine will take/give some elements. You will be encouraged to make your prediction as accurate as possible, and several attention checks are implemented to ensure you understand your task accurately. This experiment takes 10–120 minutes to complete.</p>
+         <p>If you agree to participate, you will use a computer to complete a learning task. In this study, you will be given some observations of the machines' behavior, and in some trials you will be asked to submit your prediction about whether a machine will take/give some elements. You will be encouraged to make your prediction as accurate as possible, and several attention checks are implemented to ensure you understand your task accurately. This experiment takes around 20 minutes to complete.</p>
        </div>
 
        <div class="consent-section">
@@ -1888,7 +1888,7 @@ function buildConsentPages(mode) {
 
        <div class="consent-section">
          <h3>Compensation</h3>
-         <p>You will receive $4 for completing the study. If you withdraw early or fail too many attention checks, no compensation will be provided.</p>
+         <p>You will receive $3 for completing the study. However, if you perform well and make at least three correct predictions, we will offer a bonus of $2. If you withdraw early or fail too many attention checks, no compensation will be provided.</p>
        </div>
 
        <div class="consent-section">
