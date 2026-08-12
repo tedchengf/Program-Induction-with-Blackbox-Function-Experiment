@@ -83,10 +83,10 @@
         { "type": "observation",    "machineSlot": "m3", "elementRole": "eB", "state": "a" },
         { "type": "observation",    "machineSlot": "m3", "elementRole": "eJ", "state": "r" },
         { "type": "attentionCheck", "machineSlot": "m2", "elementRole": "eM", "state": "a" },
-        { "type": "observation",    "machineSlot": "m2", "elementRole": "eN", "state": "a" },
+        { "type": "observation",    "machineSlot": "m2", "elementRole": "eN", "state": "r" },
         { "type": "observation",    "machineSlot": "m2", "elementRole": "eC", "state": "r" },
         { "type": "observation",    "machineSlot": "m1", "elementRole": "eG", "state": "r" },
-        { "type": "observation",    "machineSlot": "m1", "elementRole": "eH", "state": "r" },
+        { "type": "observation",    "machineSlot": "m1", "elementRole": "eB", "state": "a" },
         { "type": "attentionCheck", "machineSlot": "m3", "elementRole": "eB", "state": "a" },
         { "type": "observation",    "machineSlot": "m3", "elementRole": "eA", "state": "a" },
         { "type": "prediction",     "machineSlot": "m3", "elementRole": "eC", "state": "a", "critical": true }
