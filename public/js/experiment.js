@@ -1858,10 +1858,6 @@ function buildConsentPages(mode) {
       `<h2>Research Informed Consent Form</h2>
        <p style="font-size:0.85rem;color:rgba(11,19,36,0.5);margin-bottom:18px;">Program Induction with Black-Box Functions</p>
 
-       <div class="consent-section">
-         <h3>Investigators</h3>
-         <p>Feng Cheng, Bob Rehder</p>
-       </div>
 
        <div class="consent-section">
          <h3>Invitation to Participate</h3>
@@ -1915,10 +1911,6 @@ function buildConsentPages(mode) {
 
       /* ── Page 3 (final) ─────────────────────────────────────── */
       `<div class="consent-section">
-         <h3>Contact Information</h3>
-         <p>You are encouraged to ask questions at any time during this study. For information about the study, contact Prof. Robert Rehder at bob.rehder@nyu.edu, 6 Washington Place, Room 586, Meyer Building, New York, NY 10003.</p>
-         <p>If you have questions about your rights as a research participant or if you believe you have been harmed from the research, please contact the NYU Human Research Protection Program at (212) 998-4808 or ask.humansubjects@nyu.edu.</p>
-       </div>
 
        <div class="consent-agreement">
          <p><strong>Agreement to Participate</strong></p>
